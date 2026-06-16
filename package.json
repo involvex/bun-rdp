@@ -1,0 +1,20 @@
+{
+  "name": "bun-rdp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "server": "bun run server/index.ts",
+    "client": "bun run client/index.ts",
+    "web-ui": "bun run --cwd web-ui vite",
+    "build:web": "bun run --cwd web-ui vite build"
+  },
+  "dependencies": {
+    "bun-win32": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0",
+    "@types/bun": "latest"
+  }
+}

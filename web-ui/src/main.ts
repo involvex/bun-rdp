@@ -1,39 +1,80 @@
-import { MessageType, encodeMessage, decodeMessage } from '../../packages/core-protocol';
-import { attachInputCapture } from '../../client/input-capture';
+import { MessageType, encodeMessage, decodeMessage, type StatsMessage } from '../../packages/core-protocol';
+import { attachInputCapture }          from '../../client/input-capture';
 import { WebCodecsDecoder, isWebCodecsSupported } from '../../client/renderer/webcodecs';
-import { WebGPURenderer }    from '../../client/renderer/webgpu';
-import { CanvasRenderer }    from '../../client/renderer/canvas';
+import { WebGPURenderer }              from '../../client/renderer/webgpu';
+import { CanvasRenderer }              from '../../client/renderer/canvas';
+import { OpusPlayer, isOpusSupported } from '../../packages/audio/client';
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
-const canvas   = document.getElementById('remote')  as HTMLCanvasElement;
-const status   = document.getElementById('status')  as HTMLElement;
-const latEl    = document.getElementById('latency') as HTMLElement;
+const canvas    = document.getElementById('remote')  as HTMLCanvasElement;
+const statusEl  = document.getElementById('status')  as HTMLElement;
+const rttEl     = document.getElementById('rtt')     as HTMLElement;
+const fpsEl     = document.getElementById('fps')     as HTMLElement;
+const brEl      = document.getElementById('bitrate') as HTMLElement;
+const cursorEl  = document.getElementById('cursor')  as HTMLImageElement;
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let decoder:  WebCodecsDecoder | null = null;
-let renderer: WebGPURenderer | CanvasRenderer | null = null;
-let lastPing = 0;
+let decoder:     WebCodecsDecoder | null = null;
+let renderer:    WebGPURenderer | CanvasRenderer | null = null;
+let audioPlayer: OpusPlayer | null = null;
+let lastPing     = 0;
+let frameCount   = 0;
+let fpsTimer     = Date.now();
 
-function setStatus(msg: string) {
-  if (status) status.textContent = msg;
-  console.log('[ui]', msg);
+function setStatus(s: string) { if (statusEl) statusEl.textContent = s; }
+
+// ── Cursor overlay ────────────────────────────────────────────────────────────
+function updateCursor(x: number, y: number, hotX: number, hotY: number, w: number, h: number, bgra: Uint8Array) {
+  if (!cursorEl) return;
+  // Convert BGRA → RGBA for ImageData
+  const rgba = new Uint8ClampedArray(bgra.length);
+  for (let i = 0; i < bgra.length; i += 4) {
+    rgba[i]   = bgra[i + 2]; // R
+    rgba[i+1] = bgra[i + 1]; // G
+    rgba[i+2] = bgra[i];     // B
+    rgba[i+3] = bgra[i + 3]; // A
+  }
+  const offscreen = new OffscreenCanvas(w, h);
+  const ctx = offscreen.getContext('2d')!;
+  ctx.putImageData(new ImageData(rgba, w, h), 0, 0);
+  offscreen.convertToBlob({ type: 'image/png' }).then(blob => {
+    const url = URL.createObjectURL(blob);
+    if (cursorEl.src) URL.revokeObjectURL(cursorEl.src);
+    cursorEl.src    = url;
+    cursorEl.style.cssText = `position:fixed;left:${x - hotX}px;top:${y - hotY}px;pointer-events:none;z-index:999;width:${w}px;height:${h}px`;
+  });
 }
+
+// ── Clipboard sync ────────────────────────────────────────────────────────────
+document.addEventListener('paste', async (e) => {
+  const text = e.clipboardData?.getData('text/plain');
+  if (text && ws.readyState === WebSocket.OPEN) {
+    ws.send(encodeMessage({ type: MessageType.CLIPBOARD, format: 'text', data: text }));
+  }
+});
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 const params  = new URLSearchParams(location.search);
-const SERVER  = params.get('server')  ?? `ws://${location.host}/ws`;
-const TOKEN   = params.get('token')   ?? '';
+const SERVER  = params.get('server') ?? `ws://${location.host}/ws`;
+const TOKEN   = params.get('token')  ?? '';
 
 const ws = new WebSocket(SERVER);
 ws.binaryType = 'arraybuffer';
 setStatus('Connecting…');
 
-ws.onopen = () => {
+ws.onopen = async () => {
   setStatus('Authenticating…');
   ws.send(encodeMessage({ type: MessageType.AUTH, token: TOKEN }));
   attachInputCapture(canvas, (data) => ws.send(data));
 
-  // Start ping loop
+  // Init audio on user gesture / connection
+  if (await isOpusSupported()) {
+    audioPlayer = new OpusPlayer();
+    await audioPlayer.init();
+    await audioPlayer.resume();
+  }
+
+  // Ping loop
   setInterval(() => {
     lastPing = Date.now();
     ws.send(encodeMessage({ type: MessageType.PING, timestamp: lastPing }));
@@ -45,12 +86,17 @@ ws.onmessage = async ({ data }) => {
 
   switch (msg.type) {
     case MessageType.FRAME: {
-      // Init decoder + renderer on first frame
-      if (!decoder) {
-        setStatus('Initialising decoder…');
-        const webCodecsOk = await isWebCodecsSupported();
+      // FPS counter
+      frameCount++;
+      if (Date.now() - fpsTimer >= 1000) {
+        if (fpsEl) fpsEl.textContent = `${frameCount} fps`;
+        frameCount = 0;
+        fpsTimer = Date.now();
+      }
 
-        // 1. WebGPU + WebCodecs (best)
+      if (!decoder) {
+        setStatus('Init renderer…');
+        const webCodecsOk = await isWebCodecsSupported();
         const gpu = new WebGPURenderer(canvas);
         const gpuOk = await gpu.init(msg.width, msg.height);
 
@@ -58,41 +104,60 @@ ws.onmessage = async ({ data }) => {
           renderer = gpu;
           decoder  = new WebCodecsDecoder({
             canvas,
-            onFrame: (frame) => {
-              (renderer as WebGPURenderer).renderFrame(frame);
-              frame.close();
-            },
+            onFrame: (frame) => { (renderer as WebGPURenderer).renderFrame(frame); frame.close(); },
           });
-          setStatus('WebCodecs + WebGPU ✅');
+          setStatus('WebGPU + WebCodecs ✅');
         } else if (webCodecsOk) {
-          // 2. WebCodecs + Canvas 2D
           renderer = new CanvasRenderer(canvas);
           decoder  = new WebCodecsDecoder({ canvas });
-          setStatus('WebCodecs + Canvas2D ✅');
+          setStatus('Canvas + WebCodecs ✅');
         } else {
-          // 3. Canvas 2D raw fallback
           renderer = new CanvasRenderer(canvas);
           setStatus('Canvas2D fallback ⚠️');
         }
-
         if (decoder) await decoder.init(msg.width, msg.height);
       }
 
-      decoder?.decode(msg.data, msg.keyframe ?? false, msg.timestamp);
+      decoder?.decode(msg.data, msg.keyframe, msg.timestamp);
+      break;
+    }
+
+    case MessageType.AUDIO: {
+      audioPlayer?.decode(msg.data, msg.timestamp);
+      break;
+    }
+
+    case MessageType.CURSOR: {
+      updateCursor(msg.x, msg.y, msg.hotX, msg.hotY, msg.width, msg.height, msg.data);
+      break;
+    }
+
+    case MessageType.CLIPBOARD: {
+      if (msg.format === 'text') {
+        navigator.clipboard?.writeText(msg.data).catch(() => {});
+      }
       break;
     }
 
     case MessageType.PING: {
       const rtt = Date.now() - lastPing;
-      if (latEl) latEl.textContent = `${rtt} ms`;
+      if (rttEl) rttEl.textContent = `${rtt} ms`;
+      break;
+    }
+
+    case MessageType.STATS: {
+      const s = msg as unknown as StatsMessage;
+      if (brEl)  brEl.textContent  = `${(s.bitrate / 1000).toFixed(0)} kbps`;
+      if (fpsEl) fpsEl.textContent = `${s.fps} fps`;
+      if (rttEl) rttEl.textContent = `${s.rttMs} ms`;
       break;
     }
   }
 };
 
 ws.onclose = () => {
-  setStatus('Disconnected');
+  setStatus('Disconnected ❌');
   decoder?.dispose();
+  audioPlayer?.dispose();
 };
-
-ws.onerror = () => setStatus('Connection error ❌');
+ws.onerror = () => setStatus('Error ❌');

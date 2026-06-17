@@ -1,62 +1,48 @@
 # bun-rdp - Roadmap
 
 ## Phase 1 - Foundation (done)
-- [x] Monorepo scaffold
-- [x] Core binary protocol (FRAME, INPUT, CURSOR, CLIPBOARD, PING, AUTH)
-- [x] DXGI capture (D3D11 staging texture, row-pitch copy)
-- [x] GDI32 fallback (BitBlt + DrawIconEx cursor compositing)
-- [x] Bun-native WebSocket transport
-- [x] user32.SendInput (mouse, keyboard, wheel)
-- [x] HMAC token auth
-- [x] WTSAPI32 real FFI bindings
-- [x] Canvas 2D + WebGPU renderer skeleton
-- [x] GitHub Actions CI
+- [x] Monorepo scaffold, core protocol, DXGI/GDI32 capture
+- [x] WebSocket transport, SendInput, HMAC auth, WTSAPI32 FFI
 
 ## Phase 2 - Streaming (done)
-- [x] H.264 encoder — full MF pipeline
-  - [x] BGRA → NV12 conversion (BT.601, CPU-side)
-  - [x] IMFSample + IMFSinkWriter pipeline
-  - [x] Keyframe signalling (MFSampleExtension_CleanPoint)
-  - [x] Configurable bitrate / fps / keyframe interval / hw-accel flag
-  - [x] flush() for clean shutdown
-- [x] Browser decoder via WebCodecs
-  - [x] VideoDecoder (H.264 avc1.42E01E)
-  - [x] isWebCodecsSupported() capability check
-  - [x] reset() after stream discontinuity
-  - [x] Latency mode (realtime / quality)
-- [x] WebGPU renderer — fullscreen quad (WGSL shaders)
-  - [x] copyExternalImageToTexture (zero-copy VideoFrame upload)
-  - [x] Fallback to Canvas 2D
-- [x] Cursor overlay field added to FrameMessage (hotX/hotY)
-- [x] PING/PONG RTT in server + latency display in web-ui
-- [x] Unified renderer selection (WebGPU+WebCodecs > Canvas+WebCodecs > Canvas raw)
+- [x] H.264 full MF pipeline (BGRA→NV12, IMFSinkWriter, keyframes)
+- [x] WebCodecs VideoDecoder (avc1.42E01E, realtime mode, reset)
+- [x] WebGPU renderer (WGSL fullscreen quad, copyExternalImageToTexture)
+- [x] PING/PONG RTT + latency overlay
 
-## Phase 3 - Quality (next)
-- [ ] Dirty-rect optimisation (DXGI GetFrameDirtyRects — skip unchanged regions)
-- [ ] Adaptive bitrate (RTT-based, reduce on congestion)
-- [ ] Multi-monitor support (EnumOutputs loop + UI picker)
-- [ ] Clipboard sync (bidirectional text + PNG)
-- [ ] File transfer channel (chunked over WebSocket)
-- [ ] Audio: WASAPI loopback → Opus → WebAudio AudioWorklet
-- [ ] Cursor shape message (CURSOR PDU with BGRA bitmap + hotspot)
+## Phase 3 - Quality (done)
+- [x] Dirty-rect optimisation (DXGI GetFrameDirtyRects + GetFrameMoveRects)
+  - [x] Tile alignment (16px), rect merging, full-frame threshold (40%)
+  - [x] DirtyRectTracker.cropBGRA() for tile extraction
+- [x] Adaptive bitrate (AIMD: STEP_UP=+10%, STEP_DOWN=-25%, p95 RTT window)
+- [x] Audio: WASAPI loopback capture → Opus encoding (bun:ffi libopus)
+- [x] Audio: WebCodecs AudioDecoder + AudioWorklet playback in browser
+- [x] Cursor shape capture (GetIconInfo + GetDIBits, hotspot, BGRA bitmap)
+- [x] Cursor overlay in browser (CSS-positioned <img>, BGRA→RGBA conversion)
+- [x] Clipboard sync server (GetClipboardSequenceNumber polling, text/html)
+- [x] Clipboard sync browser (paste event → server, server → navigator.clipboard)
+- [x] STATS protocol message (fps, bitrate, rttMs, dirtyRatio)
+- [x] Full HUD (status, RTT, FPS, bitrate)
 
-## Phase 4 - Security
-- [ ] TLS (Bun native TLS config or nginx)
-- [ ] Token refresh (sliding expiry)
+## Phase 4 - Security (next)
+- [ ] TLS (Bun native TLS config or nginx reverse proxy)
+- [ ] Session token refresh (sliding expiry)
 - [ ] IP allowlist / CIDR filter
-- [ ] One-time share links
-- [ ] Audit log
+- [ ] One-time share links (token expires after first use)
+- [ ] Audit log entity (who, when, IP, duration)
+- [ ] Rate limiting (max connections per IP)
 
 ## Phase 5 - Packaging
-- [ ] bun build --compile → single .exe
-- [ ] NSIS installer + Windows service
-- [ ] Auto-updater (GitHub Releases)
-- [ ] System-tray icon
-- [ ] Release workflow (tag → build → attach .exe)
+- [ ] bun build --compile → single Windows .exe
+- [ ] NSIS installer + Windows service install
+- [ ] Auto-updater (GitHub Releases API)
+- [ ] System-tray icon (start/stop/status)
+- [ ] Release CI (tag → build → attach .exe to release)
 
 ## Backlog
-- WebRTC data channel transport
-- Multi-viewer broadcast
-- Session recording (MP4)
+- WebRTC data channel transport (P2P LAN path)
+- Multi-viewer broadcast / view-only mode
+- Session recording (MP4 via mp4muxer)
 - Wake-on-LAN
 - Virtual printer channel
+- Android/iOS viewer (React Native + WebCodecs)

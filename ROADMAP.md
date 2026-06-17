@@ -6,43 +6,40 @@
 
 ## Phase 2 - Streaming (done)
 - [x] H.264 full MF pipeline (BGRA→NV12, IMFSinkWriter, keyframes)
-- [x] WebCodecs VideoDecoder (avc1.42E01E, realtime mode, reset)
-- [x] WebGPU renderer (WGSL fullscreen quad, copyExternalImageToTexture)
+- [x] WebCodecs VideoDecoder + WebGPU renderer (fullscreen quad, WGSL)
 - [x] PING/PONG RTT + latency overlay
 
 ## Phase 3 - Quality (done)
-- [x] Dirty-rect optimisation (DXGI GetFrameDirtyRects + GetFrameMoveRects)
-  - [x] Tile alignment (16px), rect merging, full-frame threshold (40%)
-  - [x] DirtyRectTracker.cropBGRA() for tile extraction
-- [x] Adaptive bitrate (AIMD: STEP_UP=+10%, STEP_DOWN=-25%, p95 RTT window)
-- [x] Audio: WASAPI loopback capture → Opus encoding (bun:ffi libopus)
-- [x] Audio: WebCodecs AudioDecoder + AudioWorklet playback in browser
-- [x] Cursor shape capture (GetIconInfo + GetDIBits, hotspot, BGRA bitmap)
-- [x] Cursor overlay in browser (CSS-positioned <img>, BGRA→RGBA conversion)
-- [x] Clipboard sync server (GetClipboardSequenceNumber polling, text/html)
-- [x] Clipboard sync browser (paste event → server, server → navigator.clipboard)
-- [x] STATS protocol message (fps, bitrate, rttMs, dirtyRatio)
-- [x] Full HUD (status, RTT, FPS, bitrate)
+- [x] Dirty-rect optimisation (DXGI GetFrameDirtyRects, tile-align, merge)
+- [x] Adaptive bitrate (AIMD p95-RTT, +10%/-25%)
+- [x] Audio: WASAPI loopback → Opus (bun:ffi) + WebCodecs AudioDecoder / AudioWorklet
+- [x] Cursor shape capture + browser overlay
+- [x] Clipboard sync (server + browser, text/html)
+- [x] STATS protocol message + full HUD
 
-## Phase 4 - Security (next)
-- [ ] TLS (Bun native TLS config or nginx reverse proxy)
-- [ ] Session token refresh (sliding expiry)
-- [ ] IP allowlist / CIDR filter
-- [ ] One-time share links (token expires after first use)
-- [ ] Audit log entity (who, when, IP, duration)
-- [ ] Rate limiting (max connections per IP)
+## Phase 4 - Security (done)
+- [x] TLS — Bun native (auto self-signed ECDSA P-256 or custom cert/key)
+- [x] Session tokens — HMAC-SHA256, configurable TTL, type-checked (session/refresh/onetime)
+- [x] Refresh tokens — issue new session+refresh pair without re-auth
+- [x] One-time share links — single-use tokens with in-memory invalidation
+- [x] IP allowlist — CIDR parser (IPv4 + IPv6), runtime add/remove
+- [x] Rate limiter — sliding window per-IP, auth-fail tracking, auto-ban + manual unban
+- [x] Audit log — FileAuditWriter (JSON-lines), all security events logged
+- [x] Transport — X-Forwarded-For IP extraction, 403/429 responses
 
-## Phase 5 - Packaging
-- [ ] bun build --compile → single Windows .exe
-- [ ] NSIS installer + Windows service install
-- [ ] Auto-updater (GitHub Releases API)
-- [ ] System-tray icon (start/stop/status)
-- [ ] Release CI (tag → build → attach .exe to release)
+## Phase 5 - Packaging (next)
+- [ ] bun build --compile → single Windows .exe (server + embedded web-ui)
+- [ ] NSIS installer with Windows service install option
+- [ ] Auto-updater (GitHub Releases API check on startup)
+- [ ] System-tray icon (Rust/C++ shim or bun-win32 Shell_NotifyIcon)
+- [ ] Release CI workflow (tag → build → sign → attach .exe to GitHub Release)
+- [ ] biome.json (lint config) + pre-commit hooks
 
 ## Backlog
-- WebRTC data channel transport (P2P LAN path)
+- WebRTC data channel transport (P2P LAN path, STUN/TURN)
 - Multi-viewer broadcast / view-only mode
 - Session recording (MP4 via mp4muxer)
-- Wake-on-LAN
+- Wake-on-LAN magic packet
 - Virtual printer channel
 - Android/iOS viewer (React Native + WebCodecs)
+- Prometheus metrics endpoint (/metrics)

@@ -8,51 +8,53 @@ export const MessageType = {
   PING:      0x05,
   AUTH:      0x06,
 } as const;
-
 export type MessageType = typeof MessageType[keyof typeof MessageType];
 
 export interface FrameMessage {
-  type: typeof MessageType.FRAME;
+  type:      typeof MessageType.FRAME;
   timestamp: number;
-  width: number;
-  height: number;
-  data: Uint8Array; // H.264 Annex-B
+  width:     number;
+  height:    number;
+  keyframe:  boolean;          // IDR frame — decoder must reset if false after reconnect
+  data:      Uint8Array;       // H.264 Annex-B
 }
 
 export interface InputMessage {
-  type: typeof MessageType.INPUT;
-  inputType: 'mouse' | 'keyboard';
-  x?: number;
-  y?: number;
-  button?: number;
-  keyCode?: number;
-  keyDown?: boolean;
-  flags?: number;
+  type:       typeof MessageType.INPUT;
+  inputType:  'mouse' | 'keyboard';
+  x?:         number;
+  y?:         number;
+  button?:    number;
+  keyCode?:   number;
+  keyDown?:   boolean;
+  flags?:     number;
 }
 
 export interface CursorMessage {
-  type: typeof MessageType.CURSOR;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  data: Uint8Array; // BGRA cursor bitmap
+  type:    typeof MessageType.CURSOR;
+  x:       number;
+  y:       number;
+  hotX:    number;    // hotspot X
+  hotY:    number;    // hotspot Y
+  width:   number;
+  height:  number;
+  data:    Uint8Array; // BGRA cursor bitmap
 }
 
 export interface ClipboardMessage {
-  type: typeof MessageType.CLIPBOARD;
-  format: 'text' | 'html';
-  data: string;
+  type:   typeof MessageType.CLIPBOARD;
+  format: 'text' | 'html' | 'image';
+  data:   string;
 }
 
 export interface PingMessage {
-  type: typeof MessageType.PING;
+  type:      typeof MessageType.PING;
   timestamp: number;
 }
 
 export interface AuthMessage {
-  type: typeof MessageType.AUTH;
-  token: string;
+  type:      typeof MessageType.AUTH;
+  token:     string;
   sessionId?: string;
 }
 
@@ -64,11 +66,10 @@ export type RdpMessage =
   | PingMessage
   | AuthMessage;
 
-/** Encode a message to binary (length-prefixed) */
+/** Encode a message to binary (4-byte length prefix + JSON body) */
 export function encodeMessage(msg: RdpMessage): Uint8Array {
-  const json = JSON.stringify(msg);
-  const body = new TextEncoder().encode(json);
-  const buf = new Uint8Array(4 + body.byteLength);
+  const body = new TextEncoder().encode(JSON.stringify(msg));
+  const buf  = new Uint8Array(4 + body.byteLength);
   new DataView(buf.buffer).setUint32(0, body.byteLength, false);
   buf.set(body, 4);
   return buf;
@@ -76,6 +77,5 @@ export function encodeMessage(msg: RdpMessage): Uint8Array {
 
 /** Decode a binary message */
 export function decodeMessage(buf: Uint8Array): RdpMessage {
-  const json = new TextDecoder().decode(buf.slice(4));
-  return JSON.parse(json) as RdpMessage;
+  return JSON.parse(new TextDecoder().decode(buf.slice(4))) as RdpMessage;
 }

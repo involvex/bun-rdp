@@ -1,13 +1,23 @@
 {
   "name": "bun-rdp",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "server": "bun run server/index.ts",
+    "server:prod": "BUN_RDP_PRINT_TOKEN=1 bun run server/index.ts",
     "client": "bun run client/index.ts",
     "web-ui": "bun run --cwd web-ui vite",
-    "build:web": "bun run --cwd web-ui vite build"
+    "build": "bun run scripts/build.ts",
+    "build:server": "bun run scripts/build.ts --server",
+    "build:webui": "bun run scripts/build.ts --webui",
+    "embed": "bun run scripts/embed-assets.ts",
+    "installer": "makensis installer/bun-rdp.nsi",
+    "typecheck": "bunx tsc --noEmit",
+    "lint": "bunx @biomejs/biome check .",
+    "lint:fix": "bunx @biomejs/biome check --write .",
+    "format": "bunx @biomejs/biome format --write .",
+    "release": "bun run build && bun run installer"
   },
   "dependencies": {
     "bun-win32": "latest"
@@ -15,6 +25,7 @@
   "devDependencies": {
     "typescript": "^5.0.0",
     "vite": "^5.0.0",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@biomejs/biome": "^1.9.4"
   }
 }

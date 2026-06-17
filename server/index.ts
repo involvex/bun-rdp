@@ -7,9 +7,11 @@ import { WASAPILoopback }            from '../packages/audio';
 import { ClipboardMonitor }          from '../packages/clipboard';
 import { CursorCapture }             from '../packages/cursor';
 import { loadTlsConfig }             from '../packages/tls';
+import { checkForUpdates }           from '../scripts/updater';
+import { TrayIcon }                  from '../scripts/tray';
 import {
   issueToken, issueRefreshToken, issueOneTimeToken,
-  refreshSession, verifyToken, newSessionId,
+  verifyToken, newSessionId,
 } from '../packages/auth';
 import { MessageType, type RdpMessage } from '../packages/core-protocol';
 import { sendMouseMove, sendKeyboardInput, sendMouseWheel } from '../packages/input';
@@ -19,13 +21,23 @@ const PORT    = Number(process.env.PORT    ?? 9001);
 const FPS     = Number(process.env.FPS     ?? 30);
 const BITRATE = Number(process.env.BITRATE ?? 2_000_000);
 const AUDIO   = process.env.AUDIO !== 'false';
+const TRAY    = process.env.BUN_RDP_TRAY  !== 'false';
+const HEADLESS= process.env.BUN_RDP_HEADLESS === 'true';  // service mode
+
+// ── CLI flags ─────────────────────────────────────────────────────────────────
+if (process.argv.includes('--gen-secret')) {
+  const { randomBytes } = await import('crypto');
+  console.log(randomBytes(32).toString('hex'));
+  process.exit(0);
+}
 
 async function main() {
+  // ── Auto-updater (non-blocking) ───────────────────────────────────────────
+  checkForUpdates().catch(() => {});
+
   // ── TLS ───────────────────────────────────────────────────────────────────
   const tlsCfg = await loadTlsConfig();
-  const tls    = tlsCfg
-    ? { cert: tlsCfg.cert, key: tlsCfg.key }
-    : undefined;
+  const tls    = tlsCfg ? { cert: tlsCfg.cert, key: tlsCfg.key } : undefined;
 
   // ── Screen capture ────────────────────────────────────────────────────────
   const capture = new ScreenCapture();
@@ -33,112 +45,105 @@ async function main() {
   log.info('server', `Capture: ${backend}`);
   const { width, height } = capture.dimensions;
 
-  // ── Dirty-rect tracker ────────────────────────────────────────────────────
-  const dirtyTracker = new DirtyRectTracker(width, height);
-
-  // ── H.264 encoder ─────────────────────────────────────────────────────────
+  // ── Encoder + ABR ─────────────────────────────────────────────────────────
   const encoder = new H264Encoder({ width, height, fps: FPS, bitrate: BITRATE });
   await encoder.init();
 
-  // ── ABR ───────────────────────────────────────────────────────────────────
   const abr = new AdaptiveBitrateController({
     initialBitrate:  BITRATE,
     onBitrateChange: (br) => log.info('abr', `→ ${(br / 1000).toFixed(0)} kbps`),
   });
 
-  // ── Transport (with TLS, IP allowlist, rate limiter, audit log) ───────────
+  // ── Transport ─────────────────────────────────────────────────────────────
   const transport = new WsTransport(PORT, tls);
   const audit     = transport.audit;
+  const dirtyTracker = new DirtyRectTracker(width, height);
 
-  // Per-client state
-  const pings      = new Map<string, number>();
-  const clientIPs  = new Map<string, string>();
+  const pings     = new Map<string, number>();
+  const clientIPs = new Map<string, string>();
 
-  transport.on('connect', (id, ip) => {
-    pings.set(id, 0);
-    clientIPs.set(id, ip);
-    log.info('server', `+ ${id} (${ip})`);
-  });
-
-  transport.on('disconnect', (id, ip) => {
-    pings.delete(id);
-    clientIPs.delete(id);
-    log.info('server', `- ${id} (${ip})`);
-  });
+  transport.on('connect', (id, ip) => { pings.set(id, 0); clientIPs.set(id, ip); });
+  transport.on('disconnect', (id, ip) => { pings.delete(id); clientIPs.delete(id); });
 
   transport.on('message', (clientId: string, msg: RdpMessage) => {
     const ip = clientIPs.get(clientId) ?? '?';
-
     switch (msg.type) {
       case MessageType.AUTH: {
         const result = verifyToken(msg.token);
         if (result) {
           transport.setAuthenticated(clientId, result.sessionId);
           audit.authOk(ip, clientId, result.sessionId);
-
-          // Issue fresh tokens on each auth
-          const newSession = issueToken(result.sessionId);
-          const newRefresh = issueRefreshToken(result.sessionId);
           transport.send(clientId, {
-            type:  MessageType.AUTH,
-            token: newSession,
+            type: MessageType.AUTH,
+            token: issueToken(result.sessionId),
             sessionId: result.sessionId,
           } as unknown as RdpMessage);
         } else {
-          audit.authFail(ip, clientId, 'invalid or expired token');
-          const stillOk = transport.recordAuthFail(ip, clientId);
-          if (!stillOk) {
-            // Rate limit triggered — close connection
-            log.warn('server', `Rate-limited ${ip} — closing`);
-          }
+          audit.authFail(ip, clientId);
+          transport.recordAuthFail(ip, clientId);
         }
         break;
       }
-
-      case MessageType.INPUT: {
+      case MessageType.INPUT:
         if (msg.inputType === 'mouse')    sendMouseMove(msg.x ?? 0, msg.y ?? 0);
         if (msg.inputType === 'keyboard') sendKeyboardInput(msg.keyCode ?? 0, msg.keyDown ?? false);
         if (msg.inputType === 'wheel')    sendMouseWheel(msg.delta ?? 0);
         break;
-      }
-
-      case MessageType.PING: {
-        const sent = pings.get(clientId) ?? msg.timestamp;
-        abr.addSample(Date.now() - sent);
+      case MessageType.PING:
+        abr.addSample(Date.now() - (pings.get(clientId) ?? msg.timestamp));
         transport.send(clientId, { type: MessageType.PING, timestamp: Date.now() });
         break;
-      }
-
-      case MessageType.CLIPBOARD: {
+      case MessageType.CLIPBOARD:
         audit.clipboardIn(clientId, msg.format);
         clipboard.setClipboard({ format: msg.format as 'text' | 'html' | 'image/png', data: msg.data });
         break;
-      }
     }
   });
 
   transport.start();
 
-  // ── Clipboard ─────────────────────────────────────────────────────────────
-  const clipboard = new ClipboardMonitor((payload) => {
-    transport.broadcast({ type: MessageType.CLIPBOARD, format: payload.format, data: payload.data });
-  });
+  // ── Clipboard + Cursor ────────────────────────────────────────────────────
+  const clipboard = new ClipboardMonitor((payload) =>
+    transport.broadcast({ type: MessageType.CLIPBOARD, format: payload.format, data: payload.data })
+  );
   clipboard.start();
-
-  // ── Cursor ────────────────────────────────────────────────────────────────
   const cursorCap = new CursorCapture();
 
   // ── Audio ─────────────────────────────────────────────────────────────────
   if (AUDIO) {
     try {
       const audio = new WASAPILoopback({
-        bitrate:  96_000,
+        bitrate: 96_000,
         onPacket: (packet, ts) =>
           transport.broadcast({ type: MessageType.AUDIO, timestamp: ts, data: packet }),
       });
       await audio.init();
       audio.start();
     } catch (e) { log.warn('audio', `WASAPI unavailable: ${e}`); }
+  }
+
+  // ── System tray ───────────────────────────────────────────────────────────
+  if (TRAY && !HEADLESS) {
+    const sid   = newSessionId();
+    const token = issueOneTimeToken(sid);
+    const proto = tls ? 'wss' : 'ws';
+    const shareLink = `${proto}://localhost:${PORT}?token=${token}`;
+
+    const trayIcon = new TrayIcon({
+      port:           PORT,
+      getConnCount:   () => transport.connectedCount,
+      getShareLink:   () => shareLink,
+      onStop:         () => { log.info('server', 'Stopping via tray…'); process.exit(0); },
+    });
+    trayIcon.init();
+  }
+
+  // ── One-time token CLI ────────────────────────────────────────────────────
+  if (process.env.BUN_RDP_PRINT_TOKEN) {
+    const sid   = newSessionId();
+    const token = issueOneTimeToken(sid);
+    const proto = tls ? 'wss' : 'ws';
+    console.log(`\n🔗 Share: ${proto}://localhost:${PORT}?token=${token}\n`);
   }
 
   // ── Capture + encode loop ─────────────────────────────────────────────────
@@ -157,12 +162,10 @@ async function main() {
     if (!encoded) return;
 
     transport.broadcast({
-      type:      MessageType.FRAME,
-      timestamp: Date.now(),
-      width, height,
-      keyframe:  encoded.keyframe,
-      rects:     isFullFrame ? undefined : dirty?.dirtyRects,
-      data:      encoded.data,
+      type: MessageType.FRAME, timestamp: Date.now(),
+      width, height, keyframe: encoded.keyframe,
+      rects: isFullFrame ? undefined : dirty?.dirtyRects,
+      data: encoded.data,
     });
 
     const cursorMsg = cursorCap.poll();
@@ -171,23 +174,12 @@ async function main() {
     frameCount++;
     if (frameCount % (FPS * 30) === 0) {
       const s = abr.stats();
-      log.info('server',
-        `frames=${frameCount} skip=${skipCount} rtt=${s.avgRtt}ms p95=${s.p95Rtt}ms br=${(s.bitrate/1000).toFixed(0)}kbps`
-      );
+      log.info('server', `frames=${frameCount} skip=${skipCount} rtt=${s.avgRtt}ms br=${(s.bitrate/1000).toFixed(0)}kbps`);
     }
   }, interval);
 
-  // ── One-time token CLI helper ─────────────────────────────────────────────
-  if (process.env.BUN_RDP_PRINT_TOKEN) {
-    const sid   = newSessionId();
-    const token = issueOneTimeToken(sid);
-    const proto = tls ? 'wss' : 'ws';
-    console.log(`\n🔗 Share link: ${proto}://localhost:${PORT}?token=${token}\n`);
-  }
-
   log.info('server',
-    `bun-rdp ready — ${tls ? 'wss' : 'ws'}://localhost:${PORT}  ` +
-    `${width}x${height}@${FPS}fps  audio=${AUDIO}`
+    `bun-rdp ready — ${tls ? 'wss' : 'ws'}://localhost:${PORT}  ${width}x${height}@${FPS}fps`
   );
 }
 

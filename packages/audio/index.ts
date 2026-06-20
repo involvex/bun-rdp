@@ -13,18 +13,18 @@
  *   https://learn.microsoft.com/en-us/windows/win32/coreaudio/loopback-recording
  *   https://opus-codec.org/docs/opus_api-1.3.1/group__opus__encoder.html
  */
-import { dlopen, FFIType, ptr, toArrayBuffer } from 'bun:ffi';
-import { mmdeviceapi, audioclient } from 'bun-win32';
+import { FFIType, dlopen, ptr, toArrayBuffer } from 'bun:ffi';
+import { audioclient, mmdeviceapi } from '../win32-compat';
 
 // ─── Opus constants ────────────────────────────────────────────────────────────
-const OPUS_OK             = 0;
+const OPUS_OK = 0;
 const OPUS_APPLICATION_VOIP = 2048;
 const OPUS_APPLICATION_AUDIO = 2049;
 const OPUS_SET_BITRATE_REQUEST = 4002;
-const SAMPLE_RATE         = 48000;
-const CHANNELS            = 2;
-const FRAME_SIZE          = 960;   // 20 ms @ 48 kHz
-const MAX_PACKET_SIZE     = 4000;  // bytes
+const SAMPLE_RATE = 48000;
+const CHANNELS = 2;
+const FRAME_SIZE = 960; // 20 ms @ 48 kHz
+const MAX_PACKET_SIZE = 4000; // bytes
 
 // ─── Opus FFI ─────────────────────────────────────────────────────────────────
 let _opus: ReturnType<typeof dlopen> | null = null;
@@ -34,23 +34,23 @@ function opus() {
   // opus.dll must be in PATH or same directory as the server binary
   _opus = dlopen('opus', {
     opus_encoder_create: {
-      args:    [FFIType.i32, FFIType.i32, FFIType.i32, FFIType.ptr],
+      args: [FFIType.i32, FFIType.i32, FFIType.i32, FFIType.ptr],
       returns: FFIType.ptr,
     },
     opus_encoder_ctl: {
-      args:    [FFIType.ptr, FFIType.i32, FFIType.i32],
+      args: [FFIType.ptr, FFIType.i32, FFIType.i32],
       returns: FFIType.i32,
     },
     opus_encode_float: {
-      args:    [FFIType.ptr, FFIType.ptr, FFIType.i32, FFIType.ptr, FFIType.i32],
+      args: [FFIType.ptr, FFIType.ptr, FFIType.i32, FFIType.ptr, FFIType.i32],
       returns: FFIType.i32,
     },
     opus_encoder_destroy: {
-      args:    [FFIType.ptr],
+      args: [FFIType.ptr],
       returns: FFIType.void,
     },
     opus_strerror: {
-      args:    [FFIType.i32],
+      args: [FFIType.i32],
       returns: FFIType.cstring,
     },
   });
@@ -60,17 +60,17 @@ function opus() {
 // ─── WASAPILoopback ────────────────────────────────────────────────────────────
 
 export interface AudioConfig {
-  bitrate?:    number;   // Opus bitrate bits/s (default 96_000)
+  bitrate?: number; // Opus bitrate bits/s (default 96_000)
   application?: 'voip' | 'audio';
-  onPacket:    (packet: Uint8Array, timestamp: number) => void;
+  onPacket: (packet: Uint8Array, timestamp: number) => void;
 }
 
 export class WASAPILoopback {
-  private encoder:   bigint | null = null;  // OpusEncoder*
-  private client:    unknown = null;
-  private capture:   unknown = null;
-  private running    = false;
-  private cfg:       AudioConfig;
+  private encoder: bigint | null = null; // OpusEncoder*
+  private client: unknown = null;
+  private capture: unknown = null;
+  private running = false;
+  private cfg: AudioConfig;
 
   constructor(cfg: AudioConfig) {
     this.cfg = cfg;
@@ -86,32 +86,25 @@ export class WASAPILoopback {
     );
 
     // Get default render (playback) device for loopback
-    const device = enumerator.GetDefaultAudioEndpoint(
-      mmdeviceapi.eRender,
-      mmdeviceapi.eConsole
-    );
+    const device = enumerator.GetDefaultAudioEndpoint(mmdeviceapi.eRender, mmdeviceapi.eConsole);
 
-    this.client = device.Activate(
-      mmdeviceapi.IID_IAudioClient,
-      mmdeviceapi.CLSCTX_ALL,
-      null
-    );
+    this.client = device.Activate(mmdeviceapi.IID_IAudioClient, mmdeviceapi.CLSCTX_ALL, null);
 
     const ac = this.client as ReturnType<typeof audioclient.IAudioClient.prototype.Activate>;
 
     // WASAPI loopback — AUDCLNT_STREAMFLAGS_LOOPBACK
     const AUDCLNT_STREAMFLAGS_LOOPBACK = 0x00020000;
     const REFTIMES_PER_MS = 10_000n;
-    const bufferDuration  = REFTIMES_PER_MS * 200n; // 200 ms buffer
+    const bufferDuration = REFTIMES_PER_MS * 200n; // 200 ms buffer
 
     const wfx = {
-      wFormatTag:      3,       // WAVE_FORMAT_IEEE_FLOAT
-      nChannels:       CHANNELS,
-      nSamplesPerSec:  SAMPLE_RATE,
-      wBitsPerSample:  32,
-      nBlockAlign:     CHANNELS * 4,
+      wFormatTag: 3, // WAVE_FORMAT_IEEE_FLOAT
+      nChannels: CHANNELS,
+      nSamplesPerSec: SAMPLE_RATE,
+      wBitsPerSample: 32,
+      nBlockAlign: CHANNELS * 4,
       nAvgBytesPerSec: SAMPLE_RATE * CHANNELS * 4,
-      cbSize:          0,
+      cbSize: 0,
     };
 
     ac.Initialize(
@@ -127,13 +120,10 @@ export class WASAPILoopback {
 
     // ── Init Opus encoder ─────────────────────────────────────────────────
     const errBuf = Buffer.alloc(4);
-    const app    = (this.cfg.application ?? 'audio') === 'voip'
-      ? OPUS_APPLICATION_VOIP
-      : OPUS_APPLICATION_AUDIO;
+    const app =
+      (this.cfg.application ?? 'audio') === 'voip' ? OPUS_APPLICATION_VOIP : OPUS_APPLICATION_AUDIO;
 
-    this.encoder = opus().symbols.opus_encoder_create(
-      SAMPLE_RATE, CHANNELS, app, errBuf
-    ) as bigint;
+    this.encoder = opus().symbols.opus_encoder_create(SAMPLE_RATE, CHANNELS, app, errBuf) as bigint;
 
     const err = errBuf.readInt32LE(0);
     if (err !== OPUS_OK) {
@@ -145,20 +135,22 @@ export class WASAPILoopback {
     const bitrate = this.cfg.bitrate ?? 96_000;
     opus().symbols.opus_encoder_ctl(this.encoder, OPUS_SET_BITRATE_REQUEST, bitrate);
 
-    console.log(`[audio] WASAPI loopback + Opus ready — ${SAMPLE_RATE}Hz ${CHANNELS}ch ${bitrate/1000}kbps`);
+    console.log(
+      `[audio] WASAPI loopback + Opus ready — ${SAMPLE_RATE}Hz ${CHANNELS}ch ${bitrate / 1000}kbps`
+    );
   }
 
   start(): void {
     if (this.running) return;
     this.running = true;
 
-    const ac  = this.client as ReturnType<typeof audioclient.IAudioClient.prototype.Activate>;
+    const ac = this.client as ReturnType<typeof audioclient.IAudioClient.prototype.Activate>;
     const cap = this.capture as ReturnType<typeof mmdeviceapi.IMMDevice.prototype.Activate>;
     ac.Start();
 
-    const pcmBuf    = new Float32Array(FRAME_SIZE * CHANNELS);
-    const outBuf    = Buffer.alloc(MAX_PACKET_SIZE);
-    let   pcmFilled = 0;
+    const pcmBuf = new Float32Array(FRAME_SIZE * CHANNELS);
+    const outBuf = Buffer.alloc(MAX_PACKET_SIZE);
+    let pcmFilled = 0;
 
     const tick = () => {
       if (!this.running) return;
@@ -166,10 +158,18 @@ export class WASAPILoopback {
       try {
         // Drain all available capture packets
         let frames: number, flags: number, data: Float32Array;
-        while (({ frames, flags, data } = (cap as unknown as {
-          GetBuffer(): { frames: number; flags: number; data: Float32Array }
-        }).GetBuffer(), frames > 0)) {
-
+        while (
+          (({ frames, flags, data } = (
+            cap as unknown as {
+              GetBuffer(): {
+                frames: number;
+                flags: number;
+                data: Float32Array;
+              };
+            }
+          ).GetBuffer()),
+          frames > 0)
+        ) {
           // Accumulate into pcmBuf
           let src = 0;
           while (src < frames && pcmFilled < FRAME_SIZE) {
@@ -199,9 +199,11 @@ export class WASAPILoopback {
             pcmFilled = 0;
           }
         }
-      } catch { /* silence gap */ }
+      } catch {
+        /* silence gap */
+      }
 
-      setTimeout(tick, 10);  // poll every 10 ms
+      setTimeout(tick, 10); // poll every 10 ms
     };
 
     tick();

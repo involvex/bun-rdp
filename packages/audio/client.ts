@@ -13,8 +13,8 @@
  */
 
 export const OPUS_SAMPLE_RATE = 48_000;
-export const OPUS_CHANNELS    = 2;
-export const OPUS_FRAME_SIZE  = 960;
+export const OPUS_CHANNELS = 2;
+export const OPUS_FRAME_SIZE = 960;
 
 // ─── Support check ────────────────────────────────────────────────────────────
 
@@ -22,17 +22,19 @@ export async function isOpusSupported(): Promise<boolean> {
   if (typeof AudioDecoder === 'undefined') return false;
   try {
     const { supported } = await AudioDecoder.isConfigSupported({
-      codec:          'opus',
-      sampleRate:     OPUS_SAMPLE_RATE,
+      codec: 'opus',
+      sampleRate: OPUS_SAMPLE_RATE,
       numberOfChannels: OPUS_CHANNELS,
     });
     return supported;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 // ─── AudioWorklet processor source (inlined as a Blob URL) ───────────────────
 
-const WORKLET_SRC = /* javascript */`
+const WORKLET_SRC = /* javascript */ `
 class OpusPlayerProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -81,24 +83,24 @@ registerProcessor('opus-player', OpusPlayerProcessor);
 // ─── OpusPlayer ───────────────────────────────────────────────────────────────
 
 export class OpusPlayer {
-  private ctx:       AudioContext | null = null;
-  private decoder:   AudioDecoder | null = null;
-  private worklet:   AudioWorkletNode | null = null;
+  private ctx: AudioContext | null = null;
+  private decoder: AudioDecoder | null = null;
+  private worklet: AudioWorkletNode | null = null;
 
-  packetsReceived  = 0;
-  framesDecoded    = 0;
+  packetsReceived = 0;
+  framesDecoded = 0;
 
   async init(): Promise<void> {
     this.ctx = new AudioContext({ sampleRate: OPUS_SAMPLE_RATE, latencyHint: 'interactive' });
 
     // Load AudioWorklet processor
     const blob = new Blob([WORKLET_SRC], { type: 'application/javascript' });
-    const url  = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
     await this.ctx.audioWorklet.addModule(url);
     URL.revokeObjectURL(url);
 
     this.worklet = new AudioWorkletNode(this.ctx, 'opus-player', {
-      numberOfInputs:  0,
+      numberOfInputs: 0,
       numberOfOutputs: 1,
       outputChannelCount: [OPUS_CHANNELS],
     });
@@ -121,8 +123,8 @@ export class OpusPlayer {
     });
 
     await this.decoder.configure({
-      codec:            'opus',
-      sampleRate:       OPUS_SAMPLE_RATE,
+      codec: 'opus',
+      sampleRate: OPUS_SAMPLE_RATE,
       numberOfChannels: OPUS_CHANNELS,
     });
 
@@ -133,15 +135,19 @@ export class OpusPlayer {
   decode(packet: Uint8Array, timestampMs: number): void {
     if (!this.decoder || this.decoder.state === 'closed') return;
     this.packetsReceived++;
-    this.decoder.decode(new EncodedAudioChunk({
-      type:      'key',   // Opus frames are always self-contained
-      timestamp: timestampMs * 1_000,  // microseconds
-      data:      packet,
-    }));
+    this.decoder.decode(
+      new EncodedAudioChunk({
+        type: 'key', // Opus frames are always self-contained
+        timestamp: timestampMs * 1_000, // microseconds
+        data: packet,
+      })
+    );
   }
 
   /** Resume AudioContext after user gesture */
-  async resume(): Promise<void> { await this.ctx?.resume(); }
+  async resume(): Promise<void> {
+    await this.ctx?.resume();
+  }
 
   dispose(): void {
     if (this.decoder?.state !== 'closed') this.decoder?.close();
@@ -149,8 +155,10 @@ export class OpusPlayer {
     this.ctx?.close();
     this.decoder = null;
     this.worklet = null;
-    this.ctx     = null;
+    this.ctx = null;
   }
 
-  get isReady(): boolean { return this.decoder?.state === 'configured'; }
+  get isReady(): boolean {
+    return this.decoder?.state === 'configured';
+  }
 }

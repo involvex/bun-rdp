@@ -1,3 +1,5 @@
+import { cpSync, existsSync, mkdirSync, rmSync } from 'fs';
+import { join } from 'path';
 /**
  * build.ts — Production build script
  *
@@ -12,16 +14,15 @@
  *   dist/bun-rdp-<version>-win-x64.zip # release archive
  */
 import { $ } from 'bun';
-import { existsSync, mkdirSync, cpSync, rmSync } from 'fs';
-import { join } from 'path';
 
-const VERSION = process.env.npm_package_version
-  ?? (await $`git describe --tags --abbrev=0`.text().catch(() => '0.1.0')).trim();
+const VERSION =
+  process.env.npm_package_version ??
+  (await $`git describe --tags --abbrev=0`.text().catch(() => '0.1.0')).trim();
 
-const DIST    = join(process.cwd(), 'dist');
-const ARGS    = process.argv.slice(2);
-const SERVER  = ARGS.includes('--server') || !ARGS.includes('--webui');
-const WEBUI   = ARGS.includes('--webui')  || !ARGS.includes('--server');
+const DIST = join(process.cwd(), 'dist');
+const ARGS = process.argv.slice(2);
+const SERVER = ARGS.includes('--server') || !ARGS.includes('--webui');
+const WEBUI = ARGS.includes('--webui') || !ARGS.includes('--server');
 
 console.log(`\n🔨 bun-rdp build  v${VERSION}\n`);
 
@@ -61,7 +62,7 @@ const zipName = `bun-rdp-${VERSION}-win-x64.zip`;
 const zipPath = join(DIST, zipName);
 
 // Bundle: server.exe + web-ui/ + README + .env.example
-await $`powershell Compress-Archive \
+await $`pwsh -C Compress-Archive \
   -Path dist\\bun-rdp-server.exe,dist\\web-ui,README.md,.env.example \
   -DestinationPath ${zipPath}`.catch(async () => {
   // Fallback: use 7z if available

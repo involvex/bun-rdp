@@ -12,17 +12,21 @@ import { createHmac, randomBytes } from 'crypto';
 
 // ─── Secret ───────────────────────────────────────────────────────────────────
 
-const SECRET = process.env.BUN_RDP_SECRET ?? (() => {
-  const s = randomBytes(32).toString('hex');
-  console.warn('[auth] BUN_RDP_SECRET not set — using ephemeral secret (tokens invalidated on restart)');
-  return s;
-})();
+const SECRET =
+  process.env.BUN_RDP_SECRET ??
+  (() => {
+    const s = randomBytes(32).toString('hex');
+    console.warn(
+      '[auth] BUN_RDP_SECRET not set — using ephemeral secret (tokens invalidated on restart)'
+    );
+    return s;
+  })();
 
 // ─── TTL ──────────────────────────────────────────────────────────────────────
 
-const TTL_SESSION_MS  = Number(process.env.BUN_RDP_SESSION_TTL_MS  ?? 3_600_000);   // 1 h
-const TTL_REFRESH_MS  = Number(process.env.BUN_RDP_REFRESH_TTL_MS  ?? 86_400_000);  // 24 h
-const TTL_ONETIME_MS  = Number(process.env.BUN_RDP_ONETIME_TTL_MS  ?? 3_600_000);   // 1 h
+const TTL_SESSION_MS = Number(process.env.BUN_RDP_SESSION_TTL_MS ?? 3_600_000); // 1 h
+const TTL_REFRESH_MS = Number(process.env.BUN_RDP_REFRESH_TTL_MS ?? 86_400_000); // 24 h
+const TTL_ONETIME_MS = Number(process.env.BUN_RDP_ONETIME_TTL_MS ?? 3_600_000); // 1 h
 
 // ─── One-time token store (in-memory; replace with DB entity for multi-process)
 const usedTokens = new Set<string>();
@@ -34,20 +38,24 @@ function sign(payload: string): string {
 }
 
 function makeToken(sessionId: string, type: string, ttlMs: number): string {
-  const exp     = Date.now() + ttlMs;
+  const exp = Date.now() + ttlMs;
   const payload = `${type}:${sessionId}:${exp}`;
-  const sig     = sign(payload);
+  const sig = sign(payload);
   return Buffer.from(`${payload}:${sig}`).toString('base64url');
 }
 
-function parseToken(token: string): { type: string; sessionId: string; exp: number; sig: string } | null {
+function parseToken(
+  token: string
+): { type: string; sessionId: string; exp: number; sig: string } | null {
   try {
     const decoded = Buffer.from(token, 'base64url').toString();
-    const parts   = decoded.split(':');
+    const parts = decoded.split(':');
     if (parts.length < 4) return null;
     const [type, sessionId, expStr, ...sigParts] = parts;
     return { type, sessionId, exp: Number(expStr), sig: sigParts.join(':') };
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -69,7 +77,7 @@ export function issueOneTimeToken(sessionId: string): string {
 
 export interface VerifyResult {
   sessionId: string;
-  type:      'session' | 'refresh' | 'onetime';
+  type: 'session' | 'refresh' | 'onetime';
   expiresAt: number;
 }
 
@@ -105,12 +113,14 @@ export function verifyToken(token: string): VerifyResult | null {
  * Refresh a session token using a valid refresh token.
  * Returns a new { sessionToken, refreshToken } pair or null.
  */
-export function refreshSession(refreshToken: string): { sessionToken: string; refreshToken: string } | null {
+export function refreshSession(
+  refreshToken: string
+): { sessionToken: string; refreshToken: string } | null {
   const result = verifyToken(refreshToken);
   if (!result || result.type !== 'refresh') return null;
   return {
-    sessionToken:  issueToken(result.sessionId),
-    refreshToken:  issueRefreshToken(result.sessionId),
+    sessionToken: issueToken(result.sessionId),
+    refreshToken: issueRefreshToken(result.sessionId),
   };
 }
 

@@ -1,18 +1,18 @@
-import { MessageType, encodeMessage, decodeMessage } from '../packages/core-protocol';
+import { MessageType, decodeMessage, encodeMessage } from '../packages/core-protocol';
+import { CanvasRenderer } from './renderer/canvas';
 import { WebCodecsDecoder, isWebCodecsSupported } from './renderer/webcodecs';
 import { WebGPURenderer } from './renderer/webgpu';
-import { CanvasRenderer } from './renderer/canvas';
 
 const SERVER = process.env.SERVER ?? 'ws://localhost:9001';
-const TOKEN  = process.env.TOKEN  ?? '';
+const TOKEN = process.env.TOKEN ?? '';
 
 // ── WebSocket ──────────────────────────────────────────────────────────────
 const ws = new WebSocket(SERVER);
 ws.binaryType = 'arraybuffer';
 
-let decoder:  WebCodecsDecoder | null = null;
+let decoder: WebCodecsDecoder | null = null;
 let renderer: WebGPURenderer | CanvasRenderer | null = null;
-let canvas:   HTMLCanvasElement | null = null;
+let canvas: HTMLCanvasElement | null = null;
 
 ws.onopen = async () => {
   console.log('[client] Connected →', SERVER);
@@ -20,10 +20,11 @@ ws.onopen = async () => {
 
   // Set up canvas (Node/Bun: use OffscreenCanvas or skip for headless)
   if (typeof document !== 'undefined') {
-    canvas = document.getElementById('remote') as HTMLCanvasElement ?? document.createElement('canvas');
+    canvas =
+      (document.getElementById('remote') as HTMLCanvasElement) ?? document.createElement('canvas');
   }
 
-  const webCodecsOk = typeof VideoDecoder !== 'undefined' && await isWebCodecsSupported();
+  const webCodecsOk = typeof VideoDecoder !== 'undefined' && (await isWebCodecsSupported());
   console.log('[client] WebCodecs:', webCodecsOk ? '✅' : '❌ (will use Canvas2D)');
 };
 
@@ -40,7 +41,7 @@ ws.onmessage = async ({ data }) => {
         const webCodecsOk = await isWebCodecsSupported();
 
         if (webCodecsOk) {
-          decoder  = new WebCodecsDecoder({ canvas: canvas! });
+          decoder = new WebCodecsDecoder({ canvas: canvas! });
           await decoder.init(msg.width, msg.height);
 
           // Try WebGPU renderer — fall back to Canvas 2D
@@ -48,7 +49,7 @@ ws.onmessage = async ({ data }) => {
           if (await gpu.init(msg.width, msg.height)) {
             renderer = gpu;
             // Override decoder's onFrame to use WebGPU
-            decoder  = new WebCodecsDecoder({
+            decoder = new WebCodecsDecoder({
               canvas: canvas!,
               onFrame: (frame) => {
                 (renderer as WebGPURenderer).renderFrame(frame);

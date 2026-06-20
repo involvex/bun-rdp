@@ -9,29 +9,29 @@
  *   OpenClipboard / CloseClipboard / GetClipboardData / SetClipboardData
  *   AddClipboardFormatListener (WM_CLIPBOARDUPDATE)
  */
-import { User32, Kernel32 } from 'bun-win32';
+import { Kernel32, User32 } from '../win32-compat';
 
 export type ClipboardFormat = 'text' | 'html' | 'image/png';
 
 export interface ClipboardPayload {
   format: ClipboardFormat;
-  data:   string;          // text/html: UTF-8 string; image/png: base64
+  data: string; // text/html: UTF-8 string; image/png: base64
 }
 
 export type ClipboardChangeHandler = (payload: ClipboardPayload) => void;
 
 // ─── Win32 clipboard format IDs ──────────────────────────────────────────────
-const CF_UNICODETEXT   = 13;
-const CF_DIB           = 8;
-const CF_HTML          = () => User32.RegisterClipboardFormatW('HTML Format');
+const CF_UNICODETEXT = 13;
+const CF_DIB = 8;
+const CF_HTML = () => User32.RegisterClipboardFormatW('HTML Format');
 
 // ─── ClipboardMonitor ─────────────────────────────────────────────────────────
 
 export class ClipboardMonitor {
   private onChange: ClipboardChangeHandler;
-  private running  = false;
-  private lastSeq  = -1;
-  private cfHtml   = 0;
+  private running = false;
+  private lastSeq = -1;
+  private cfHtml = 0;
 
   constructor(onChange: ClipboardChangeHandler) {
     this.onChange = onChange;
@@ -40,12 +40,14 @@ export class ClipboardMonitor {
   start(): void {
     if (this.running) return;
     this.running = true;
-    this.cfHtml  = CF_HTML();
+    this.cfHtml = CF_HTML();
     this._poll();
     console.log('[clipboard] Monitor started');
   }
 
-  stop(): void { this.running = false; }
+  stop(): void {
+    this.running = false;
+  }
 
   // ── Poll clipboard sequence number (cheap, no window needed) ─────────────
   private _poll(): void {
@@ -57,7 +59,9 @@ export class ClipboardMonitor {
         const payload = this._read();
         if (payload) this.onChange(payload);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     setTimeout(() => this._poll(), 500);
   }
 
@@ -79,7 +83,7 @@ export class ClipboardMonitor {
       // Plain text
       const hText = User32.GetClipboardData(CF_UNICODETEXT);
       if (hText) {
-        const ptr  = Kernel32.GlobalLock(hText);
+        const ptr = Kernel32.GlobalLock(hText);
         const text = readWString(ptr);
         Kernel32.GlobalUnlock(hText);
         if (text.trim()) return { format: 'text', data: text };
@@ -97,9 +101,9 @@ export class ClipboardMonitor {
       User32.EmptyClipboard();
 
       if (payload.format === 'text') {
-        const wstr  = encodeWString(payload.data);
-        const hMem  = Kernel32.GlobalAlloc(Kernel32.GMEM_MOVEABLE, wstr.byteLength);
-        const ptr   = Kernel32.GlobalLock(hMem);
+        const wstr = encodeWString(payload.data);
+        const hMem = Kernel32.GlobalAlloc(Kernel32.GMEM_MOVEABLE, wstr.byteLength);
+        const ptr = Kernel32.GlobalLock(hMem);
         writeBuffer(ptr, wstr);
         Kernel32.GlobalUnlock(hMem);
         User32.SetClipboardData(CF_UNICODETEXT, hMem);
@@ -115,8 +119,11 @@ export class ClipboardMonitor {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function readWString(ptrVal: unknown, maxChars = 32768): string {
-  const buf  = (Bun as unknown as { FFI: { viewSource(p: unknown, l: number): ArrayBuffer } })
-    .FFI.viewSource(ptrVal, maxChars * 2);
+  const buf = (
+    Bun as unknown as {
+      FFI: { viewSource(p: unknown, l: number): ArrayBuffer };
+    }
+  ).FFI.viewSource(ptrVal, maxChars * 2);
   const view = new DataView(buf);
   const chars: number[] = [];
   for (let i = 0; i < maxChars; i++) {
@@ -128,8 +135,11 @@ function readWString(ptrVal: unknown, maxChars = 32768): string {
 }
 
 function readCString(ptrVal: unknown, maxBytes = 65536): string {
-  const buf  = (Bun as unknown as { FFI: { viewSource(p: unknown, l: number): ArrayBuffer } })
-    .FFI.viewSource(ptrVal, maxBytes);
+  const buf = (
+    Bun as unknown as {
+      FFI: { viewSource(p: unknown, l: number): ArrayBuffer };
+    }
+  ).FFI.viewSource(ptrVal, maxBytes);
   const bytes = new Uint8Array(buf);
   let end = bytes.indexOf(0);
   if (end < 0) end = maxBytes;
@@ -138,14 +148,17 @@ function readCString(ptrVal: unknown, maxBytes = 65536): string {
 
 function encodeWString(s: string): Uint8Array {
   const buf = new Uint8Array((s.length + 1) * 2);
-  const dv  = new DataView(buf.buffer);
+  const dv = new DataView(buf.buffer);
   for (let i = 0; i < s.length; i++) dv.setUint16(i * 2, s.charCodeAt(i), true);
   return buf;
 }
 
 function writeBuffer(ptrVal: unknown, data: Uint8Array): void {
-  const buf = (Bun as unknown as { FFI: { viewSource(p: unknown, l: number): ArrayBuffer } })
-    .FFI.viewSource(ptrVal, data.byteLength);
+  const buf = (
+    Bun as unknown as {
+      FFI: { viewSource(p: unknown, l: number): ArrayBuffer };
+    }
+  ).FFI.viewSource(ptrVal, data.byteLength);
   new Uint8Array(buf).set(data);
 }
 

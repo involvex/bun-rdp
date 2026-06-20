@@ -3,22 +3,48 @@
  * Real FFI bindings via bun:ffi -> WTSAPI32.DLL
  * Ref: https://learn.microsoft.com/en-us/windows/win32/api/wtsapi32/
  */
-import { dlopen, FFIType } from 'bun:ffi';
+import { FFIType, dlopen } from 'bun:ffi';
 
 export const WTS_CONNECTSTATE_CLASS = {
-  WTSActive: 0, WTSConnected: 1, WTSConnectQuery: 2, WTSShadow: 3,
-  WTSDisconnected: 4, WTSIdle: 5, WTSListen: 6, WTSReset: 7, WTSDown: 8, WTSInit: 9,
+  WTSActive: 0,
+  WTSConnected: 1,
+  WTSConnectQuery: 2,
+  WTSShadow: 3,
+  WTSDisconnected: 4,
+  WTSIdle: 5,
+  WTSListen: 6,
+  WTSReset: 7,
+  WTSDown: 8,
+  WTSInit: 9,
 } as const;
 export type WtsConnectState = keyof typeof WTS_CONNECTSTATE_CLASS;
 
 export const WTS_INFO_CLASS = {
-  WTSInitialProgram: 0, WTSApplicationName: 1, WTSWorkingDirectory: 2, WTSOEMId: 3,
-  WTSSessionId: 4, WTSUserName: 5, WTSWinStationName: 6, WTSDomainName: 7,
-  WTSConnectState: 8, WTSClientBuildNumber: 9, WTSClientName: 10, WTSClientDirectory: 11,
-  WTSClientProductId: 12, WTSClientHardwareId: 13, WTSClientAddress: 14,
-  WTSClientDisplay: 15, WTSClientProtocolType: 16, WTSIdleTime: 17,
-  WTSLogonTime: 18, WTSIncomingBytes: 19, WTSOutgoingBytes: 20,
-  WTSIncomingFrames: 21, WTSOutgoingFrames: 22, WTSClientInfo: 23, WTSSessionInfo: 24,
+  WTSInitialProgram: 0,
+  WTSApplicationName: 1,
+  WTSWorkingDirectory: 2,
+  WTSOEMId: 3,
+  WTSSessionId: 4,
+  WTSUserName: 5,
+  WTSWinStationName: 6,
+  WTSDomainName: 7,
+  WTSConnectState: 8,
+  WTSClientBuildNumber: 9,
+  WTSClientName: 10,
+  WTSClientDirectory: 11,
+  WTSClientProductId: 12,
+  WTSClientHardwareId: 13,
+  WTSClientAddress: 14,
+  WTSClientDisplay: 15,
+  WTSClientProtocolType: 16,
+  WTSIdleTime: 17,
+  WTSLogonTime: 18,
+  WTSIncomingBytes: 19,
+  WTSOutgoingBytes: 20,
+  WTSIncomingFrames: 21,
+  WTSOutgoingFrames: 22,
+  WTSClientInfo: 23,
+  WTSSessionInfo: 24,
 } as const;
 export type WtsInfoClass = (typeof WTS_INFO_CLASS)[keyof typeof WTS_INFO_CLASS];
 
@@ -37,15 +63,27 @@ function lib() {
       returns: FFIType.bool,
     },
     WTSSendMessageW: {
-      args: [FFIType.ptr, FFIType.u32, FFIType.ptr, FFIType.u32, FFIType.ptr, FFIType.u32,
-             FFIType.u32, FFIType.u32, FFIType.ptr, FFIType.bool],
+      args: [
+        FFIType.ptr,
+        FFIType.u32,
+        FFIType.ptr,
+        FFIType.u32,
+        FFIType.ptr,
+        FFIType.u32,
+        FFIType.u32,
+        FFIType.u32,
+        FFIType.ptr,
+        FFIType.bool,
+      ],
       returns: FFIType.bool,
     },
     WTSDisconnectSession: {
-      args: [FFIType.ptr, FFIType.u32, FFIType.bool], returns: FFIType.bool,
+      args: [FFIType.ptr, FFIType.u32, FFIType.bool],
+      returns: FFIType.bool,
     },
     WTSLogoffSession: {
-      args: [FFIType.ptr, FFIType.u32, FFIType.bool], returns: FFIType.bool,
+      args: [FFIType.ptr, FFIType.u32, FFIType.bool],
+      returns: FFIType.bool,
     },
   });
   return _lib;
@@ -93,17 +131,18 @@ export function enumerateSessions(): WtsSession[] {
   const pCount = Buffer.alloc(4);
   if (!lib().symbols.WTSEnumerateSessionsW(WTS_CURRENT_SERVER, 0, 1, ppSess, pCount))
     throw new Error('WTSEnumerateSessionsW failed');
-  const count   = pCount.readUInt32LE(0);
-  const base    = ppSess.readBigUInt64LE(0);
+  const count = pCount.readUInt32LE(0);
+  const base = ppSess.readBigUInt64LE(0);
   const results: WtsSession[] = [];
   for (let i = 0; i < count; i++) {
     const mem = ffi().viewSource(base + BigInt(i * 24), 24);
-    const dv  = new DataView(mem);
-    const id  = dv.getUint32(0, true);
-    const np  = dv.getBigUint64(8, true);
-    const sv  = dv.getUint32(16, true);
+    const dv = new DataView(mem);
+    const id = dv.getUint32(0, true);
+    const np = dv.getBigUint64(8, true);
+    const sv = dv.getUint32(16, true);
     const name = readWString(ffi().viewSource(np, 256));
-    const state = (Object.entries(WTS_CONNECTSTATE_CLASS).find(([, v]) => v === sv)?.[0] ?? 'WTSDown') as WtsConnectState;
+    const state = (Object.entries(WTS_CONNECTSTATE_CLASS).find(([, v]) => v === sv)?.[0] ??
+      'WTSDown') as WtsConnectState;
     results.push({ sessionId: id, winStationName: name, state });
   }
   lib().symbols.WTSFreeMemory(ffi().ptr(base));
@@ -111,11 +150,19 @@ export function enumerateSessions(): WtsSession[] {
 }
 
 export function querySessionString(sessionId: number, infoClass: WtsInfoClass): string | null {
-  const ppBuf  = Buffer.alloc(8);
+  const ppBuf = Buffer.alloc(8);
   const pBytes = Buffer.alloc(4);
-  if (!lib().symbols.WTSQuerySessionInformationW(WTS_CURRENT_SERVER, sessionId, infoClass, ppBuf, pBytes))
+  if (
+    !lib().symbols.WTSQuerySessionInformationW(
+      WTS_CURRENT_SERVER,
+      sessionId,
+      infoClass,
+      ppBuf,
+      pBytes
+    )
+  )
     return null;
-  const ptr   = ppBuf.readBigUInt64LE(0);
+  const ptr = ppBuf.readBigUInt64LE(0);
   const bytes = pBytes.readUInt32LE(0);
   const value = readWString(ffi().viewSource(ptr, bytes), bytes);
   lib().symbols.WTSFreeMemory(ffi().ptr(ptr));
@@ -124,26 +171,60 @@ export function querySessionString(sessionId: number, infoClass: WtsInfoClass): 
 
 export function isRemoteSession(): boolean {
   try {
-    const u32 = dlopen('user32', { GetSystemMetrics: { args: [FFIType.i32], returns: FFIType.i32 } });
+    const u32 = dlopen('user32', {
+      GetSystemMetrics: { args: [FFIType.i32], returns: FFIType.i32 },
+    });
     return u32.symbols.GetSystemMetrics(0x1000) !== 0; // SM_REMOTESESSION
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 export function getClientDisplay(sessionId: number): WtsClientDisplay | null {
-  const ppBuf  = Buffer.alloc(8);
+  const ppBuf = Buffer.alloc(8);
   const pBytes = Buffer.alloc(4);
-  if (!lib().symbols.WTSQuerySessionInformationW(WTS_CURRENT_SERVER, sessionId, WTS_INFO_CLASS.WTSClientDisplay, ppBuf, pBytes))
+  if (
+    !lib().symbols.WTSQuerySessionInformationW(
+      WTS_CURRENT_SERVER,
+      sessionId,
+      WTS_INFO_CLASS.WTSClientDisplay,
+      ppBuf,
+      pBytes
+    )
+  )
     return null;
   const ptr = ppBuf.readBigUInt64LE(0);
-  const dv  = new DataView(ffi().viewSource(ptr, 12));
-  const res = { HorizontalResolution: dv.getUint32(0, true), VerticalResolution: dv.getUint32(4, true), ColorDepth: dv.getUint32(8, true) };
+  const dv = new DataView(ffi().viewSource(ptr, 12));
+  const res = {
+    HorizontalResolution: dv.getUint32(0, true),
+    VerticalResolution: dv.getUint32(4, true),
+    ColorDepth: dv.getUint32(8, true),
+  };
   lib().symbols.WTSFreeMemory(ffi().ptr(ptr));
   return res;
 }
 
-export function sendSessionMessage(sessionId: number, title: string, message: string, timeoutSec = 0): boolean {
-  const tb = encodeWStr(title), mb = encodeWStr(message), pr = Buffer.alloc(4);
-  return lib().symbols.WTSSendMessageW(WTS_CURRENT_SERVER, sessionId, tb, tb.byteLength, mb, mb.byteLength, 0x40, timeoutSec, pr, timeoutSec > 0);
+export function sendSessionMessage(
+  sessionId: number,
+  title: string,
+  message: string,
+  timeoutSec = 0
+): boolean {
+  const tb = encodeWStr(title),
+    mb = encodeWStr(message),
+    pr = Buffer.alloc(4);
+  return lib().symbols.WTSSendMessageW(
+    WTS_CURRENT_SERVER,
+    sessionId,
+    tb,
+    tb.byteLength,
+    mb,
+    mb.byteLength,
+    0x40,
+    timeoutSec,
+    pr,
+    timeoutSec > 0
+  );
 }
 
 export function disconnectSession(sessionId: number, wait = false): boolean {
@@ -154,9 +235,15 @@ export function logoffSession(sessionId: number, wait = false): boolean {
   return lib().symbols.WTSLogoffSession(WTS_CURRENT_SERVER, sessionId, wait);
 }
 
-export const getSessionUsername  = (id: number) => querySessionString(id, WTS_INFO_CLASS.WTSUserName);
-export const getSessionDomain    = (id: number) => querySessionString(id, WTS_INFO_CLASS.WTSDomainName);
-export const getWinStationName   = (id: number) => querySessionString(id, WTS_INFO_CLASS.WTSWinStationName);
-export const getClientName       = (id: number) => querySessionString(id, WTS_INFO_CLASS.WTSClientName);
+export const getSessionUsername = (id: number) =>
+  querySessionString(id, WTS_INFO_CLASS.WTSUserName);
+export const getSessionDomain = (id: number) =>
+  querySessionString(id, WTS_INFO_CLASS.WTSDomainName);
+export const getWinStationName = (id: number) =>
+  querySessionString(id, WTS_INFO_CLASS.WTSWinStationName);
+export const getClientName = (id: number) => querySessionString(id, WTS_INFO_CLASS.WTSClientName);
 
-export function dispose() { _lib?.close(); _lib = null; }
+export function dispose() {
+  _lib?.close();
+  _lib = null;
+}

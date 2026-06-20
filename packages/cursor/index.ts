@@ -1,12 +1,12 @@
+import type { CursorMessage } from '../core-protocol';
+import { MessageType } from '../core-protocol';
 /**
  * Cursor shape capture — Win32 GetCursorInfo + GetIconInfo + GetDIBits
  *
  * Captures the current hardware cursor shape (bitmap + hotspot) and emits
  * a CURSOR protocol message whenever the cursor changes.
  */
-import { User32, Gdi32 } from 'bun-win32';
-import type { CursorMessage } from '../core-protocol';
-import { MessageType } from '../core-protocol';
+import { Gdi32, User32 } from '../win32-compat';
 
 export class CursorCapture {
   private lastCursorHandle: unknown = null;
@@ -35,9 +35,9 @@ export class CursorCapture {
       if (!hBmp) return null;
 
       const bmi = new Gdi32.BITMAPINFO({
-        biWidth:       0,   // filled by first GetDIBits call
-        biHeight:      0,
-        biBitCount:    32,
+        biWidth: 0, // filled by first GetDIBits call
+        biHeight: 0,
+        biBitCount: 32,
         biCompression: Gdi32.BI_RGB,
       });
 
@@ -53,9 +53,9 @@ export class CursorCapture {
       // Second call — get pixels
       const hdc2 = User32.GetDC(null);
       const bmi2 = new Gdi32.BITMAPINFO({
-        biWidth:      w,
-        biHeight:    -h,   // top-down
-        biBitCount:   32,
+        biWidth: w,
+        biHeight: -h, // top-down
+        biBitCount: 32,
         biCompression: Gdi32.BI_RGB,
       });
       const buf = new Uint8Array(w * h * 4);
@@ -67,14 +67,14 @@ export class CursorCapture {
       if (ii.hbmColor) Gdi32.DeleteObject(ii.hbmColor);
 
       return {
-        type:   MessageType.CURSOR,
-        x:      screenX,
-        y:      screenY,
+        type: MessageType.CURSOR,
+        x: screenX,
+        y: screenY,
         hotX,
         hotY,
-        width:  w,
+        width: w,
         height: h,
-        data:   buf,
+        data: buf,
       };
     } catch {
       return null;

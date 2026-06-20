@@ -54,42 +54,40 @@ export interface DecoderConfig {
 // ─── Decoder class ────────────────────────────────────────────────────────────
 
 export class WebCodecsDecoder {
-  private decoder:  VideoDecoder | null = null;
-  private canvas:   HTMLCanvasElement;
-  private ctx2d:    CanvasRenderingContext2D | null = null;
-  private cfg:      DecoderConfig;
+  private decoder: VideoDecoder | null = null;
+  private canvas: HTMLCanvasElement;
+  private ctx2d: CanvasRenderingContext2D | null = null;
+  private cfg: DecoderConfig;
 
   /** Number of frames decoded successfully */
   framesDecoded = 0;
   /** Number of decode errors */
-  errors        = 0;
+  errors = 0;
 
   constructor(cfg: DecoderConfig) {
-    this.cfg    = cfg;
+    this.cfg = cfg;
     this.canvas = cfg.canvas;
-    this.ctx2d  = cfg.canvas.getContext('2d');
+    this.ctx2d = cfg.canvas.getContext('2d');
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
   async init(width: number, height: number): Promise<void> {
-    this.canvas.width  = width;
+    this.canvas.width = width;
     this.canvas.height = height;
 
     this.decoder = new VideoDecoder({
       output: (frame) => this._onFrame(frame),
-      error:  (e)     => this._onError(e),
+      error: (e) => this._onError(e),
     });
 
     await this.decoder.configure({
-      codec:               H264_CODEC,
-      codedWidth:          width,
-      codedHeight:         height,
-      hardwareAcceleration: (this.cfg.hwAccel ?? true)
-        ? 'prefer-hardware'
-        : 'prefer-software',
-      latencyMode:         this.cfg.latencyMode ?? 'realtime',
-      optimizeForLatency:  (this.cfg.latencyMode ?? 'realtime') === 'realtime',
+      codec: H264_CODEC,
+      codedWidth: width,
+      codedHeight: height,
+      hardwareAcceleration: (this.cfg.hwAccel ?? true) ? 'prefer-hardware' : 'prefer-software',
+      latencyMode: this.cfg.latencyMode ?? 'realtime',
+      optimizeForLatency: (this.cfg.latencyMode ?? 'realtime') === 'realtime',
     });
 
     console.log(`[decoder] WebCodecs H.264 ready — ${width}x${height}`);
@@ -107,10 +105,10 @@ export class WebCodecsDecoder {
     if (!this.decoder || this.decoder.state === 'closed') return;
 
     const chunk = new EncodedVideoChunk({
-      type:      keyframe ? 'key' : 'delta',
-      timestamp: timestampMs * 1_000,  // WebCodecs uses microseconds
-      duration:  0,
-      data:      data,
+      type: keyframe ? 'key' : 'delta',
+      timestamp: timestampMs * 1_000, // WebCodecs uses microseconds
+      duration: 0,
+      data: data,
     });
 
     this.decoder.decode(chunk);
@@ -132,7 +130,7 @@ export class WebCodecsDecoder {
     if (this.ctx2d) {
       this.ctx2d.drawImage(frame, 0, 0);
     }
-    frame.close();  // MUST close to release GPU memory
+    frame.close(); // MUST close to release GPU memory
   }
 
   private _onError(e: Error): void {
@@ -178,9 +176,9 @@ export class WebCodecsDecoder {
  * Use this instead of drawImage() for the WebGPU rendering path.
  */
 export function uploadFrameToWebGPU(
-  device:  GPUDevice,
+  device: GPUDevice,
   texture: GPUTexture,
-  frame:   VideoFrame
+  frame: VideoFrame
 ): void {
   // copyExternalImageToTexture is the fast path — no readback to CPU
   device.queue.copyExternalImageToTexture(

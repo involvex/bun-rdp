@@ -9,19 +9,19 @@
  * Self-signed cert generation via Bun's built-in crypto (SubtleCrypto ECDSA P-256).
  * For production: point to a Let's Encrypt cert via BUN_RDP_CERT / BUN_RDP_KEY.
  */
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 export type TlsMode = 'auto' | 'custom' | 'off';
 
 export interface TlsConfig {
-  cert: string;   // PEM
-  key:  string;   // PEM
+  cert: string; // PEM
+  key: string; // PEM
 }
 
-const DATA_DIR  = process.env.BUN_RDP_DATA_DIR ?? join(process.cwd(), '.rdp-data');
+const DATA_DIR = process.env.BUN_RDP_DATA_DIR ?? join(process.cwd(), '.rdp-data');
 const CERT_PATH = join(DATA_DIR, 'server.crt');
-const KEY_PATH  = join(DATA_DIR, 'server.key');
+const KEY_PATH = join(DATA_DIR, 'server.key');
 
 // ─── Self-signed cert (ECDSA P-256) ──────────────────────────────────────────
 
@@ -37,25 +37,27 @@ async function generateSelfSigned(): Promise<TlsConfig> {
   );
 
   // Export keys as PKCS8 / SPKI
-  const privDer = await crypto.subtle.exportKey('pkcs8',  privateKey);
-  const pubDer  = await crypto.subtle.exportKey('spki',   publicKey);
+  const privDer = await crypto.subtle.exportKey('pkcs8', privateKey);
+  const pubDer = await crypto.subtle.exportKey('spki', publicKey);
 
   const privPem = toPem('PRIVATE KEY', privDer);
-  const pubPem  = toPem('PUBLIC KEY',  pubDer);
+  const pubPem = toPem('PUBLIC KEY', pubDer);
 
   // Build a minimal self-signed X.509 cert
   // For full X.509 DER we rely on Bun's built-in x509 support (Bun ≥ 1.1)
-  const cert = await (Bun as unknown as {
-    generateCertificate(opts: {
-      privateKey: CryptoKey;
-      publicKey:  CryptoKey;
-      subject:    string;
-      validDays:  number;
-    }): Promise<string>;
-  }).generateCertificate({
+  const cert = await (
+    Bun as unknown as {
+      generateCertificate(opts: {
+        privateKey: CryptoKey;
+        publicKey: CryptoKey;
+        subject: string;
+        validDays: number;
+      }): Promise<string>;
+    }
+  ).generateCertificate({
     privateKey,
     publicKey,
-    subject:   'CN=bun-rdp,O=bun-rdp,C=DE',
+    subject: 'CN=bun-rdp,O=bun-rdp,C=DE',
     validDays: 365,
   });
 
@@ -80,11 +82,11 @@ export async function loadTlsConfig(): Promise<TlsConfig | null> {
 
   if (mode === 'custom') {
     const cert = process.env.BUN_RDP_CERT;
-    const key  = process.env.BUN_RDP_KEY;
+    const key = process.env.BUN_RDP_KEY;
     if (!cert || !key) throw new Error('BUN_RDP_TLS=custom requires BUN_RDP_CERT and BUN_RDP_KEY');
     return {
       cert: readFileSync(cert, 'utf8'),
-      key:  readFileSync(key,  'utf8'),
+      key: readFileSync(key, 'utf8'),
     };
   }
 
@@ -93,7 +95,7 @@ export async function loadTlsConfig(): Promise<TlsConfig | null> {
     console.log('[tls] Loaded existing cert from', DATA_DIR);
     return {
       cert: readFileSync(CERT_PATH, 'utf8'),
-      key:  readFileSync(KEY_PATH,  'utf8'),
+      key: readFileSync(KEY_PATH, 'utf8'),
     };
   }
 
@@ -101,7 +103,7 @@ export async function loadTlsConfig(): Promise<TlsConfig | null> {
   const cfg = await generateSelfSigned();
   mkdirSync(DATA_DIR, { recursive: true });
   writeFileSync(CERT_PATH, cfg.cert, { mode: 0o600 });
-  writeFileSync(KEY_PATH,  cfg.key,  { mode: 0o600 });
+  writeFileSync(KEY_PATH, cfg.key, { mode: 0o600 });
   console.log('[tls] Certificate saved to', DATA_DIR);
   return cfg;
 }

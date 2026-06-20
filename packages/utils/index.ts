@@ -8,14 +8,16 @@ function shouldLog(level: LogLevel) {
 }
 
 export const log = {
-  debug: (tag: string, ...args: unknown[]) => shouldLog('debug') && console.debug(`[${tag}]`, ...args),
-  info:  (tag: string, ...args: unknown[]) => shouldLog('info')  && console.info (`[${tag}]`, ...args),
-  warn:  (tag: string, ...args: unknown[]) => shouldLog('warn')  && console.warn (`[${tag}]`, ...args),
-  error: (tag: string, ...args: unknown[]) => shouldLog('error') && console.error(`[${tag}]`, ...args),
+  debug: (tag: string, ...args: unknown[]) =>
+    shouldLog('debug') && console.debug(`[${tag}]`, ...args),
+  info: (tag: string, ...args: unknown[]) => shouldLog('info') && console.info(`[${tag}]`, ...args),
+  warn: (tag: string, ...args: unknown[]) => shouldLog('warn') && console.warn(`[${tag}]`, ...args),
+  error: (tag: string, ...args: unknown[]) =>
+    shouldLog('error') && console.error(`[${tag}]`, ...args),
 };
 
 export function sleep(ms: number) {
-  return new Promise<void>(r => setTimeout(r, ms));
+  return new Promise<void>((r) => setTimeout(r, ms));
 }
 
 export function clamp(val: number, min: number, max: number) {

@@ -6,20 +6,20 @@
  * The server serves these directly when no external web-ui path is set,
  * making the .exe fully self-contained.
  */
-import { readdirSync, readFileSync, writeFileSync, statSync } from 'fs';
-import { join, relative, extname } from 'path';
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
+import { extname, join, relative } from 'path';
 
 const WEB_UI_DIR = join(process.cwd(), 'dist', 'web-ui');
-const OUT_FILE   = join(process.cwd(), 'server',  'embedded-assets.ts');
+const OUT_FILE = join(process.cwd(), 'server', 'embedded-assets.ts');
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
-  '.js':   'application/javascript',
-  '.css':  'text/css',
-  '.ico':  'image/x-icon',
-  '.png':  'image/png',
-  '.svg':  'image/svg+xml',
-  '.woff2':'font/woff2',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.ico': 'image/x-icon',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2',
   '.json': 'application/json',
 };
 
@@ -37,11 +37,13 @@ const files = walkDir(WEB_UI_DIR);
 const entries: string[] = [];
 
 for (const file of files) {
-  const rel  = '/' + relative(WEB_UI_DIR, file).replace(/\\/g, '/');
-  const ext  = extname(file);
+  const rel = '/' + relative(WEB_UI_DIR, file).replace(/\\/g, '/');
+  const ext = extname(file);
   const mime = MIME[ext] ?? 'application/octet-stream';
-  const b64  = readFileSync(file).toString('base64');
-  entries.push(`  ${JSON.stringify(rel)}: { mime: ${JSON.stringify(mime)}, data: ${JSON.stringify(b64)} }`);
+  const b64 = readFileSync(file).toString('base64');
+  entries.push(
+    `  ${JSON.stringify(rel)}: { mime: ${JSON.stringify(mime)}, data: ${JSON.stringify(b64)} }`
+  );
 }
 
 const src = `// AUTO-GENERATED — do not edit manually

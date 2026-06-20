@@ -1,47 +1,47 @@
 import type { ServerWebSocket, TLSOptions } from 'bun';
-import { encodeMessage, decodeMessage, type RdpMessage } from '../core-protocol';
-import { IPAllowlist }  from '../security/ip-allowlist';
-import { RateLimiter }  from '../security/rate-limiter';
-import { AuditLogger }  from '../audit';
+import { AuditLogger } from '../audit';
+import { type RdpMessage, decodeMessage, encodeMessage } from '../core-protocol';
+import { IPAllowlist } from '../security/ip-allowlist';
+import { RateLimiter } from '../security/rate-limiter';
 
 export type ClientId = string;
 
 export interface TransportClient {
-  id:            ClientId;
-  ip:            string;
-  ws:            ServerWebSocket<{ id: ClientId; ip: string }>;
+  id: ClientId;
+  ip: string;
+  ws: ServerWebSocket<{ id: ClientId; ip: string }>;
   authenticated: boolean;
-  sessionId?:    string;
-  connectedAt:   number;
+  sessionId?: string;
+  connectedAt: number;
 }
 
 export class WsTransport {
-  private clients     = new Map<ClientId, TransportClient>();
-  private onMessage?  : (id: ClientId, msg: RdpMessage) => void;
-  private onConnect?  : (id: ClientId, ip: string) => void;
+  private clients = new Map<ClientId, TransportClient>();
+  private onMessage?: (id: ClientId, msg: RdpMessage) => void;
+  private onConnect?: (id: ClientId, ip: string) => void;
   private onDisconnect?: (id: ClientId, ip: string) => void;
 
-  private allowlist   = new IPAllowlist();
-  private limiter     = new RateLimiter();
-  readonly audit      = new AuditLogger();
+  private allowlist = new IPAllowlist();
+  private limiter = new RateLimiter();
+  readonly audit = new AuditLogger();
 
   constructor(
-    private port    = 9001,
-    private tls?:     TLSOptions
+    private port = 9001,
+    private tls?: TLSOptions
   ) {}
 
   start(): void {
     Bun.serve({
-      port:      this.port,
-      tls:       this.tls,
+      port: this.port,
+      tls: this.tls,
       websocket: {
         open: (ws) => {
           const client: TransportClient = {
-            id:            ws.data.id,
-            ip:            ws.data.ip,
+            id: ws.data.id,
+            ip: ws.data.ip,
             ws,
             authenticated: false,
-            connectedAt:   Date.now(),
+            connectedAt: Date.now(),
           };
           this.clients.set(ws.data.id, client);
           this.audit.connect(ws.data.ip, ws.data.id);
@@ -52,7 +52,9 @@ export class WsTransport {
           try {
             const msg = decodeMessage(buf);
             this.onMessage?.(ws.data.id, msg);
-          } catch { /* malformed message */ }
+          } catch {
+            /* malformed message */
+          }
         },
         close: (ws) => {
           const client = this.clients.get(ws.data.id);
@@ -106,7 +108,7 @@ export class WsTransport {
     const c = this.clients.get(clientId);
     if (!c) return;
     c.authenticated = true;
-    c.sessionId     = sessionId;
+    c.sessionId = sessionId;
   }
 
   recordAuthFail(ip: string, clientId: string): boolean {
@@ -117,14 +119,16 @@ export class WsTransport {
     return this.clients.get(clientId)?.ip ?? '0.0.0.0';
   }
 
-  on(event: 'message',    cb: (id: ClientId, msg: RdpMessage) => void): void;
-  on(event: 'connect',    cb: (id: ClientId, ip: string) => void): void;
+  on(event: 'message', cb: (id: ClientId, msg: RdpMessage) => void): void;
+  on(event: 'connect', cb: (id: ClientId, ip: string) => void): void;
   on(event: 'disconnect', cb: (id: ClientId, ip: string) => void): void;
   on(event: string, cb: unknown): void {
-    if (event === 'message')    this.onMessage    = cb as typeof this.onMessage;
-    if (event === 'connect')    this.onConnect    = cb as typeof this.onConnect;
+    if (event === 'message') this.onMessage = cb as typeof this.onMessage;
+    if (event === 'connect') this.onConnect = cb as typeof this.onConnect;
     if (event === 'disconnect') this.onDisconnect = cb as typeof this.onDisconnect;
   }
 
-  get connectedCount(): number { return this.clients.size; }
+  get connectedCount(): number {
+    return this.clients.size;
+  }
 }

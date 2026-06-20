@@ -1,46 +1,61 @@
-import { MessageType, encodeMessage, decodeMessage, type StatsMessage } from '../../packages/core-protocol';
-import { attachInputCapture }          from '../../client/input-capture';
+import { attachInputCapture } from '../../client/input-capture';
+import { CanvasRenderer } from '../../client/renderer/canvas';
 import { WebCodecsDecoder, isWebCodecsSupported } from '../../client/renderer/webcodecs';
-import { WebGPURenderer }              from '../../client/renderer/webgpu';
-import { CanvasRenderer }              from '../../client/renderer/canvas';
+import { WebGPURenderer } from '../../client/renderer/webgpu';
 import { OpusPlayer, isOpusSupported } from '../../packages/audio/client';
+import {
+  MessageType,
+  type StatsMessage,
+  decodeMessage,
+  encodeMessage,
+} from '../../packages/core-protocol';
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
-const canvas    = document.getElementById('remote')  as HTMLCanvasElement;
-const statusEl  = document.getElementById('status')  as HTMLElement;
-const rttEl     = document.getElementById('rtt')     as HTMLElement;
-const fpsEl     = document.getElementById('fps')     as HTMLElement;
-const brEl      = document.getElementById('bitrate') as HTMLElement;
-const cursorEl  = document.getElementById('cursor')  as HTMLImageElement;
+const canvas = document.getElementById('remote') as HTMLCanvasElement;
+const statusEl = document.getElementById('status') as HTMLElement;
+const rttEl = document.getElementById('rtt') as HTMLElement;
+const fpsEl = document.getElementById('fps') as HTMLElement;
+const brEl = document.getElementById('bitrate') as HTMLElement;
+const cursorEl = document.getElementById('cursor') as HTMLImageElement;
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let decoder:     WebCodecsDecoder | null = null;
-let renderer:    WebGPURenderer | CanvasRenderer | null = null;
+let decoder: WebCodecsDecoder | null = null;
+let renderer: WebGPURenderer | CanvasRenderer | null = null;
 let audioPlayer: OpusPlayer | null = null;
-let lastPing     = 0;
-let frameCount   = 0;
-let fpsTimer     = Date.now();
+let lastPing = 0;
+let frameCount = 0;
+let fpsTimer = Date.now();
 
-function setStatus(s: string) { if (statusEl) statusEl.textContent = s; }
+function setStatus(s: string) {
+  if (statusEl) statusEl.textContent = s;
+}
 
 // ── Cursor overlay ────────────────────────────────────────────────────────────
-function updateCursor(x: number, y: number, hotX: number, hotY: number, w: number, h: number, bgra: Uint8Array) {
+function updateCursor(
+  x: number,
+  y: number,
+  hotX: number,
+  hotY: number,
+  w: number,
+  h: number,
+  bgra: Uint8Array
+) {
   if (!cursorEl) return;
   // Convert BGRA → RGBA for ImageData
   const rgba = new Uint8ClampedArray(bgra.length);
   for (let i = 0; i < bgra.length; i += 4) {
-    rgba[i]   = bgra[i + 2]; // R
-    rgba[i+1] = bgra[i + 1]; // G
-    rgba[i+2] = bgra[i];     // B
-    rgba[i+3] = bgra[i + 3]; // A
+    rgba[i] = bgra[i + 2]; // R
+    rgba[i + 1] = bgra[i + 1]; // G
+    rgba[i + 2] = bgra[i]; // B
+    rgba[i + 3] = bgra[i + 3]; // A
   }
   const offscreen = new OffscreenCanvas(w, h);
   const ctx = offscreen.getContext('2d')!;
   ctx.putImageData(new ImageData(rgba, w, h), 0, 0);
-  offscreen.convertToBlob({ type: 'image/png' }).then(blob => {
+  offscreen.convertToBlob({ type: 'image/png' }).then((blob) => {
     const url = URL.createObjectURL(blob);
     if (cursorEl.src) URL.revokeObjectURL(cursorEl.src);
-    cursorEl.src    = url;
+    cursorEl.src = url;
     cursorEl.style.cssText = `position:fixed;left:${x - hotX}px;top:${y - hotY}px;pointer-events:none;z-index:999;width:${w}px;height:${h}px`;
   });
 }
@@ -54,9 +69,9 @@ document.addEventListener('paste', async (e) => {
 });
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
-const params  = new URLSearchParams(location.search);
-const SERVER  = params.get('server') ?? `ws://${location.host}/ws`;
-const TOKEN   = params.get('token')  ?? '';
+const params = new URLSearchParams(location.search);
+const SERVER = params.get('server') ?? `ws://${location.host}/ws`;
+const TOKEN = params.get('token') ?? '';
 
 const ws = new WebSocket(SERVER);
 ws.binaryType = 'arraybuffer';
@@ -102,14 +117,17 @@ ws.onmessage = async ({ data }) => {
 
         if (webCodecsOk && gpuOk) {
           renderer = gpu;
-          decoder  = new WebCodecsDecoder({
+          decoder = new WebCodecsDecoder({
             canvas,
-            onFrame: (frame) => { (renderer as WebGPURenderer).renderFrame(frame); frame.close(); },
+            onFrame: (frame) => {
+              (renderer as WebGPURenderer).renderFrame(frame);
+              frame.close();
+            },
           });
           setStatus('WebGPU + WebCodecs ✅');
         } else if (webCodecsOk) {
           renderer = new CanvasRenderer(canvas);
-          decoder  = new WebCodecsDecoder({ canvas });
+          decoder = new WebCodecsDecoder({ canvas });
           setStatus('Canvas + WebCodecs ✅');
         } else {
           renderer = new CanvasRenderer(canvas);
@@ -147,7 +165,7 @@ ws.onmessage = async ({ data }) => {
 
     case MessageType.STATS: {
       const s = msg as unknown as StatsMessage;
-      if (brEl)  brEl.textContent  = `${(s.bitrate / 1000).toFixed(0)} kbps`;
+      if (brEl) brEl.textContent = `${(s.bitrate / 1000).toFixed(0)} kbps`;
       if (fpsEl) fpsEl.textContent = `${s.fps} fps`;
       if (rttEl) rttEl.textContent = `${s.rttMs} ms`;
       break;

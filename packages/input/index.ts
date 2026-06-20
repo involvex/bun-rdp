@@ -1,4 +1,4 @@
-import { User32 } from 'bun-win32';
+import { User32 } from '../win32-compat';
 
 /** Move the mouse to absolute screen coordinates (0–65535 range) */
 export function sendMouseMove(x: number, y: number) {
@@ -13,8 +13,8 @@ export function sendMouseMove(x: number, y: number) {
 /** Send a mouse button event */
 export function sendMouseButton(button: 'left' | 'right' | 'middle', down: boolean) {
   const flagMap = {
-    left:   down ? User32.MOUSEEVENTF_LEFTDOWN   : User32.MOUSEEVENTF_LEFTUP,
-    right:  down ? User32.MOUSEEVENTF_RIGHTDOWN  : User32.MOUSEEVENTF_RIGHTUP,
+    left: down ? User32.MOUSEEVENTF_LEFTDOWN : User32.MOUSEEVENTF_LEFTUP,
+    right: down ? User32.MOUSEEVENTF_RIGHTDOWN : User32.MOUSEEVENTF_RIGHTUP,
     middle: down ? User32.MOUSEEVENTF_MIDDLEDOWN : User32.MOUSEEVENTF_MIDDLEUP,
   };
   const input = new User32.INPUT();

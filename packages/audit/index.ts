@@ -13,26 +13,26 @@ import { join } from 'path';
 // ─── Event types ──────────────────────────────────────────────────────────────
 
 export type AuditEventType =
-  | 'connect'        // new WebSocket connection
-  | 'disconnect'     // connection closed
-  | 'auth_ok'        // successful authentication
-  | 'auth_fail'      // failed authentication
-  | 'token_refresh'  // session token refreshed
-  | 'ip_blocked'     // connection rejected by allowlist
-  | 'rate_limited'   // connection rejected by rate limiter
-  | 'clipboard_in'   // client sent clipboard data
-  | 'clipboard_out'  // server sent clipboard data
-  | 'session_start'  // authenticated session began streaming
-  | 'session_end';   // session ended
+  | 'connect' // new WebSocket connection
+  | 'disconnect' // connection closed
+  | 'auth_ok' // successful authentication
+  | 'auth_fail' // failed authentication
+  | 'token_refresh' // session token refreshed
+  | 'ip_blocked' // connection rejected by allowlist
+  | 'rate_limited' // connection rejected by rate limiter
+  | 'clipboard_in' // client sent clipboard data
+  | 'clipboard_out' // server sent clipboard data
+  | 'session_start' // authenticated session began streaming
+  | 'session_end'; // session ended
 
 export interface AuditEvent {
-  id:        string;
-  ts:        string;          // ISO-8601
-  type:      AuditEventType;
-  ip?:       string;
+  id: string;
+  ts: string; // ISO-8601
+  type: AuditEventType;
+  ip?: string;
   clientId?: string;
   sessionId?: string;
-  detail?:   string;
+  detail?: string;
   durationMs?: number;
 }
 
@@ -59,7 +59,7 @@ export class FileAuditWriter implements AuditWriter {
 
 export class AuditLogger {
   private writers: AuditWriter[];
-  private sessionStarts = new Map<string, number>();  // clientId → startTime
+  private sessionStarts = new Map<string, number>(); // clientId → startTime
 
   constructor(...writers: AuditWriter[]) {
     this.writers = writers.length > 0 ? writers : [new FileAuditWriter()];
@@ -67,13 +67,15 @@ export class AuditLogger {
 
   log(type: AuditEventType, fields: Omit<AuditEvent, 'id' | 'ts' | 'type'>): void {
     const event: AuditEvent = {
-      id:   crypto.randomUUID(),
-      ts:   new Date().toISOString(),
+      id: crypto.randomUUID(),
+      ts: new Date().toISOString(),
       type,
       ...fields,
     };
     for (const w of this.writers) w.write(event);
-    console.log(`[audit] ${event.ts} ${type.padEnd(14)} ${fields.ip ?? ''} ${fields.clientId?.slice(0,8) ?? ''} ${fields.detail ?? ''}`);
+    console.log(
+      `[audit] ${event.ts} ${type.padEnd(14)} ${fields.ip ?? ''} ${fields.clientId?.slice(0, 8) ?? ''} ${fields.detail ?? ''}`
+    );
   }
 
   // ── Convenience helpers ───────────────────────────────────────────────────
@@ -85,7 +87,8 @@ export class AuditLogger {
   disconnect(ip: string, clientId: string): void {
     const start = this.sessionStarts.get(clientId);
     this.log('disconnect', {
-      ip, clientId,
+      ip,
+      clientId,
       durationMs: start ? Date.now() - start : undefined,
     });
     this.sessionStarts.delete(clientId);

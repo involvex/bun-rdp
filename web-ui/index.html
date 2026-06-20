@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>bun-rdp</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0a0a0a;display:flex;flex-direction:column;align-items:center;
+         justify-content:center;height:100dvh;overflow:hidden;font-family:system-ui,sans-serif;color:#e0e0e0}
+    #remote{display:block;max-width:100%;max-height:100%;image-rendering:pixelated}
+    #hud{position:fixed;top:8px;left:50%;transform:translateX(-50%);
+         display:flex;gap:10px;align-items:center;
+         background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.1);
+         border-radius:8px;padding:5px 14px;font-size:12px;
+         backdrop-filter:blur(8px);pointer-events:none;z-index:100;white-space:nowrap}
+    .hud-sep{opacity:.3}
+    #status{color:#a3e635;font-weight:600;min-width:160px}
+    .hud-label{opacity:.45;margin-right:3px}
+    #cursor{position:fixed;pointer-events:none;z-index:999}
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <span id="status">Connecting…</span>
+    <span class="hud-sep">|</span>
+    <span><span class="hud-label">RTT</span><span id="rtt">— ms</span></span>
+    <span class="hud-sep">|</span>
+    <span><span class="hud-label">FPS</span><span id="fps">—</span></span>
+    <span class="hud-sep">|</span>
+    <span><span class="hud-label">BR</span><span id="bitrate">— kbps</span></span>
+  </div>
+  <canvas id="remote"></canvas>
+  <img id="cursor" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"/>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

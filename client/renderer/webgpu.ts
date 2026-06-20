@@ -4,34 +4,40 @@
  */
 
 export class WebGPURenderer {
-  private device:    GPUDevice | null   = null;
-  private context:   GPUCanvasContext | null = null;
-  private pipeline:  GPURenderPipeline | null = null;
-  private sampler:   GPUSampler | null  = null;
+  private device: GPUDevice | null = null;
+  private context: GPUCanvasContext | null = null;
+  private pipeline: GPURenderPipeline | null = null;
+  private sampler: GPUSampler | null = null;
   private bindGroup: GPUBindGroup | null = null;
-  private texture:   GPUTexture | null  = null;
-  private canvas:    HTMLCanvasElement;
+  private texture: GPUTexture | null = null;
+  private canvas: HTMLCanvasElement;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
   }
 
   async init(width: number, height: number): Promise<boolean> {
-    if (!navigator.gpu) { console.warn('[webgpu] Not supported'); return false; }
+    if (!navigator.gpu) {
+      console.warn('[webgpu] Not supported');
+      return false;
+    }
 
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
-    if (!adapter)  { console.warn('[webgpu] No adapter'); return false; }
+    if (!adapter) {
+      console.warn('[webgpu] No adapter');
+      return false;
+    }
 
-    this.device  = await adapter.requestDevice();
+    this.device = await adapter.requestDevice();
     this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
-    this.canvas.width  = width;
+    this.canvas.width = width;
     this.canvas.height = height;
 
     const fmt = navigator.gpu.getPreferredCanvasFormat();
     this.context.configure({ device: this.device, format: fmt, alphaMode: 'opaque' });
 
     // ── Shaders: fullscreen textured quad ────────────────────────────────
-    const wgsl = /* wgsl */`
+    const wgsl = /* wgsl */ `
       @group(0) @binding(0) var tex:     texture_2d<f32>;
       @group(0) @binding(1) var samp:    sampler;
 
@@ -61,15 +67,18 @@ export class WebGPURenderer {
     const shaderModule = this.device.createShaderModule({ code: wgsl });
 
     this.sampler = this.device.createSampler({
-      magFilter: 'linear', minFilter: 'linear',
+      magFilter: 'linear',
+      minFilter: 'linear',
     });
 
     // Placeholder texture — replaced every frame
     this.texture = this.device.createTexture({
-      size:   [width, height, 1],
+      size: [width, height, 1],
       format: 'rgba8unorm',
-      usage:  GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST |
-              GPUTextureUsage.RENDER_ATTACHMENT,
+      usage:
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
     });
 
     const bindGroupLayout = this.device.createBindGroupLayout({
@@ -89,7 +98,7 @@ export class WebGPURenderer {
 
     this.pipeline = this.device.createRenderPipeline({
       layout: this.device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
-      vertex:   { module: shaderModule, entryPoint: 'vs' },
+      vertex: { module: shaderModule, entryPoint: 'vs' },
       fragment: { module: shaderModule, entryPoint: 'fs', targets: [{ format: fmt }] },
       primitive: { topology: 'triangle-list' },
     });
@@ -112,14 +121,16 @@ export class WebGPURenderer {
       [frame.displayWidth, frame.displayHeight]
     );
 
-    const cmd     = this.device.createCommandEncoder();
-    const pass    = cmd.beginRenderPass({
-      colorAttachments: [{
-        view:       this.context.getCurrentTexture().createView(),
-        clearValue: { r: 0, g: 0, b: 0, a: 1 },
-        loadOp:     'clear',
-        storeOp:    'store',
-      }],
+    const cmd = this.device.createCommandEncoder();
+    const pass = cmd.beginRenderPass({
+      colorAttachments: [
+        {
+          view: this.context.getCurrentTexture().createView(),
+          clearValue: { r: 0, g: 0, b: 0, a: 1 },
+          loadOp: 'clear',
+          storeOp: 'store',
+        },
+      ],
     });
     pass.setPipeline(this.pipeline);
     pass.setBindGroup(0, this.bindGroup!);
@@ -128,12 +139,14 @@ export class WebGPURenderer {
     this.device.queue.submit([cmd.finish()]);
   }
 
-  get isReady(): boolean { return this.device !== null; }
+  get isReady(): boolean {
+    return this.device !== null;
+  }
 
   dispose(): void {
     this.texture?.destroy();
-    this.device   = null;
+    this.device = null;
     this.pipeline = null;
-    this.context  = null;
+    this.context = null;
   }
 }

@@ -9,40 +9,20 @@
  * For missing packages (audioclient, mftransform) it provides stub constants.
  */
 
+import D3d11Class, * as d3d11Types from '@bun-win32/d3d11';
 // ── Import actual sub-packages ──────────────────────────────────────────────────
-import DxgiClass from "@bun-win32/dxgi";
-import * as dxgiTypes from "@bun-win32/dxgi";
-
-import D3d11Class from "@bun-win32/d3d11";
-import * as d3d11Types from "@bun-win32/d3d11";
-
-import GDI32Class from "@bun-win32/gdi32";
-import * as gdi32Types from "@bun-win32/gdi32";
-
-import User32Class from "@bun-win32/user32";
-import * as user32Types from "@bun-win32/user32";
-
-import Kernel32Class from "@bun-win32/kernel32";
-import * as kernel32Types from "@bun-win32/kernel32";
-
-import Shell32Class from "@bun-win32/shell32";
-import * as shell32Types from "@bun-win32/shell32";
-
-import MfplatClass from "@bun-win32/mfplat";
-import * as mfplatTypes from "@bun-win32/mfplat";
-
-import MfreadwriteClass from "@bun-win32/mfreadwrite";
-import * as mfreadwriteTypes from "@bun-win32/mfreadwrite";
-
-import MmdevapiClass from "@bun-win32/mmdevapi";
-import * as mmdevapiTypes from "@bun-win32/mmdevapi";
+import DxgiClass, * as dxgiTypes from '@bun-win32/dxgi';
+import GDI32Class, * as gdi32Types from '@bun-win32/gdi32';
+import Kernel32Class, * as kernel32Types from '@bun-win32/kernel32';
+import MfplatClass, * as mfplatTypes from '@bun-win32/mfplat';
+import MfreadwriteClass, * as mfreadwriteTypes from '@bun-win32/mfreadwrite';
+import MmdevapiClass, * as mmdevapiTypes from '@bun-win32/mmdevapi';
+import Shell32Class, * as shell32Types from '@bun-win32/shell32';
+import User32Class, * as user32Types from '@bun-win32/user32';
 
 // ── Helper: merge class static methods with named exports ───────────────────────
 
-function mergeNs(
-  Class: any,
-  types: Record<string, unknown>,
-): Record<string, unknown> {
+function mergeNs(Class: any, types: Record<string, unknown>): Record<string, unknown> {
   const ns: Record<string, unknown> = {};
   // Copy all static methods from the class
   for (const key of Object.getOwnPropertyNames(Class)) {
@@ -50,7 +30,7 @@ function mergeNs(
   }
   // Copy named exports (enums, constants, type re-exports)
   for (const [key, value] of Object.entries(types)) {
-    if (key !== "default" && key !== "Win32" && !(key in ns)) {
+    if (key !== 'default' && key !== 'Win32' && !(key in ns)) {
       ns[key] = value;
     }
   }
@@ -63,7 +43,7 @@ export const dxgi = (() => {
   const ns = mergeNs(DxgiClass, dxgiTypes);
 
   // GUID constants the code uses
-  ns.IDXGIOutput1 = "{05008617-fbfd-4054-a7c8-67f77b0b3921}";
+  ns.IDXGIOutput1 = '{05008617-fbfd-4054-a7c8-67f77b0b3921}';
   ns.DXGI_FORMAT_B8G8R8A8_UNORM = 87; // DXGI_FORMAT enum value
 
   // Stub COM factory that returns proxy objects
@@ -74,7 +54,7 @@ export const dxgi = (() => {
           DesktopCoordinates: { left: 0, top: 0, right: 1920, bottom: 1080 },
           Monitor: { hMonitor: 0n },
           Flags: 0,
-          DeviceName: "",
+          DeviceName: '',
         }),
         QueryInterface: (_iid: unknown) => ({
           DuplicateOutput: (_device: unknown) => ({
@@ -123,7 +103,7 @@ export const d3d11 = (() => {
               _resource: unknown,
               _subresource: number,
               _mapType: number,
-              _mapFlags: number,
+              _mapFlags: number
             ) => ({
               pData: new Uint8Array(1920 * 1080 * 4),
               RowPitch: 1920 * 4,
@@ -306,7 +286,7 @@ export const User32 = (() => {
   ns.CURSOR_SHOWING = 0x00000001;
   ns.DI_NORMAL = 0x0003;
   ns.HWND_MESSAGE = -3n;
-  ns.IDI_APPLICATION = "32512";
+  ns.IDI_APPLICATION = '32512';
   ns.WM_RBUTTONUP = 0x0205;
   ns.WM_CONTEXTMENU = 0x007b;
   ns.WM_LBUTTONDBLCLK = 0x0203;
@@ -373,9 +353,9 @@ class Shell32NOTIFYICONDATAW {
   uFlags = 0;
   uCallbackMessage = 0;
   hIcon: unknown = null;
-  szTip = "";
-  szInfo = "";
-  szInfoTitle = "";
+  szTip = '';
+  szInfo = '';
+  szInfoTitle = '';
   dwInfoFlags = 0;
   uTimeout = 0;
 
@@ -384,14 +364,13 @@ class Shell32NOTIFYICONDATAW {
       cbSize: number;
       hWnd: unknown;
       uID: number;
-    },
+    }
   ) {
     this.cbSize = opts.cbSize;
     this.hWnd = opts.hWnd;
     this.uID = opts.uID;
     if (opts.uFlags !== undefined) this.uFlags = opts.uFlags;
-    if (opts.uCallbackMessage !== undefined)
-      this.uCallbackMessage = opts.uCallbackMessage;
+    if (opts.uCallbackMessage !== undefined) this.uCallbackMessage = opts.uCallbackMessage;
     if (opts.hIcon !== undefined) this.hIcon = opts.hIcon;
     if (opts.szTip !== undefined) this.szTip = opts.szTip;
     if (opts.szInfo !== undefined) this.szInfo = opts.szInfo;
@@ -530,13 +509,8 @@ class MFSinkWriter {
 export const mfreadwrite = (() => {
   const ns = mergeNs(MfreadwriteClass, mfreadwriteTypes);
 
-  ns.MFCreateSinkWriterFromMediaSink = (_sink: unknown, _attrs: unknown) =>
-    new MFSinkWriter();
-  ns.MFCreateMPEG4MediaSink = (
-    _byteStream: unknown,
-    _type: unknown,
-    _props: unknown,
-  ) => 0n;
+  ns.MFCreateSinkWriterFromMediaSink = (_sink: unknown, _attrs: unknown) => new MFSinkWriter();
+  ns.MFCreateMPEG4MediaSink = (_byteStream: unknown, _type: unknown, _props: unknown) => 0n;
 
   return ns;
 })();
@@ -547,21 +521,16 @@ export const mmdeviceapi = (() => {
   const ns = mergeNs(MmdevapiClass, mmdevapiTypes);
 
   // GUID constants
-  ns.CLSID_MMDeviceEnumerator = "bcde0395-e52f-467c-8e3d-c4579291692e";
+  ns.CLSID_MMDeviceEnumerator = 'bcde0395-e52f-467c-8e3d-c4579291692e';
   ns.CLSCTX_ALL = 0x17;
-  ns.IID_IMMDeviceEnumerator = "a95664d2-9614-4f35-a746-de8db63617e6";
-  ns.IID_IAudioClient = "1cb9ad4c-dbfa-4c32-b178-c2f568a703b2";
-  ns.IID_IAudioCaptureClient = "c8adbd64-e71e-48a0-825e-f355f3cbb0fc";
+  ns.IID_IMMDeviceEnumerator = 'a95664d2-9614-4f35-a746-de8db63617e6';
+  ns.IID_IAudioClient = '1cb9ad4c-dbfa-4c32-b178-c2f568a703b2';
+  ns.IID_IAudioCaptureClient = 'c8adbd64-e71e-48a0-825e-f355f3cbb0fc';
   ns.eRender = 0;
   ns.eConsole = 0;
 
   // Stub CoCreateInstance
-  ns.CoCreateInstance = (
-    _clsid: unknown,
-    _outer: unknown,
-    _ctx: unknown,
-    _iid: unknown,
-  ) => ({
+  ns.CoCreateInstance = (_clsid: unknown, _outer: unknown, _ctx: unknown, _iid: unknown) => ({
     GetDefaultAudioEndpoint: (_flow: number, _role: number) => ({
       Activate: (_iid: unknown, _ctx: number, _props: unknown) => ({
         Initialize: (
@@ -570,7 +539,7 @@ export const mmdeviceapi = (() => {
           _duration: bigint,
           _period: number,
           _format: unknown,
-          _guid: unknown,
+          _guid: unknown
         ) => {},
         GetService: (_iid: unknown) => ({
           GetBuffer: () => ({ frames: 0, flags: 0, data: new Float32Array(0) }),
@@ -597,7 +566,7 @@ export const audioclient = {
       _duration: bigint,
       _period: number,
       _format: unknown,
-      _guid: unknown,
+      _guid: unknown
     ) {}
     GetService(_iid: unknown) {
       return {};
@@ -610,5 +579,5 @@ export const audioclient = {
 // ── mftransform (stub — package doesn't exist on npm) ──────────────────────────
 
 export const mftransform = {
-  MFSampleExtension_CleanPoint: "{9d2b1e75-ff6e-4f5e-b1f3-4b2f5f8c8f0e}",
+  MFSampleExtension_CleanPoint: '{9d2b1e75-ff6e-4f5e-b1f3-4b2f5f8c8f0e}',
 };

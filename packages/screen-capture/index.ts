@@ -1,4 +1,4 @@
-import { Gdi32, User32, d3d11, dxgi } from '../win32-compat';
+import { d3d11, dxgi, Gdi32, User32 } from '../win32-compat';
 
 export interface CaptureFrame {
   data: Uint8Array;

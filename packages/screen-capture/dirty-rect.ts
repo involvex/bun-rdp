@@ -108,8 +108,8 @@ export class DirtyRectTracker {
   private screenH = 0;
 
   constructor(
-    private readonly screenWidth: number,
-    private readonly screenHeight: number
+    readonly screenWidth: number,
+    readonly screenHeight: number
   ) {
     this.screenW = screenWidth;
     this.screenH = screenHeight;

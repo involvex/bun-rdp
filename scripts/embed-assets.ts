@@ -6,7 +6,7 @@
  * The server serves these directly when no external web-ui path is set,
  * making the .exe fully self-contained.
  */
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
 
 const WEB_UI_DIR = join(process.cwd(), 'dist', 'web-ui');

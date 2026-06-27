@@ -3,7 +3,7 @@
  * Real FFI bindings via bun:ffi -> WTSAPI32.DLL
  * Ref: https://learn.microsoft.com/en-us/windows/win32/api/wtsapi32/
  */
-import { FFIType, dlopen } from 'bun:ffi';
+import { dlopen, FFIType } from 'bun:ffi';
 
 export const WTS_CONNECTSTATE_CLASS = {
   WTSActive: 0,

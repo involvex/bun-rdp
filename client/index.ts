@@ -1,6 +1,6 @@
-import { MessageType, decodeMessage, encodeMessage } from '../packages/core-protocol';
+import { decodeMessage, encodeMessage, MessageType } from '../packages/core-protocol';
 import { CanvasRenderer } from './renderer/canvas';
-import { WebCodecsDecoder, isWebCodecsSupported } from './renderer/webcodecs';
+import { isWebCodecsSupported, WebCodecsDecoder } from './renderer/webcodecs';
 import { WebGPURenderer } from './renderer/webgpu';
 
 const SERVER = process.env.SERVER ?? 'ws://localhost:9001';

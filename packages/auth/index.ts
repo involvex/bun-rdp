@@ -117,7 +117,7 @@ export function refreshSession(
   refreshToken: string
 ): { sessionToken: string; refreshToken: string } | null {
   const result = verifyToken(refreshToken);
-  if (!result || result.type !== 'refresh') return null;
+  if (result?.type !== 'refresh') return null;
   return {
     sessionToken: issueToken(result.sessionId),
     refreshToken: issueRefreshToken(result.sessionId),

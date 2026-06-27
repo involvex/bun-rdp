@@ -1,4 +1,4 @@
-import { MessageType, encodeMessage } from '../packages/core-protocol';
+import { encodeMessage, MessageType } from '../packages/core-protocol';
 
 export function attachInputCapture(canvas: HTMLCanvasElement, send: (data: Uint8Array) => void) {
   canvas.addEventListener('mousemove', (e) => {

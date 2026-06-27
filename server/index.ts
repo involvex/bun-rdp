@@ -1,41 +1,31 @@
-import { AdaptiveBitrateController } from "../packages/adaptive-bitrate";
-import { WASAPILoopback } from "../packages/audio";
-import {
-  issueOneTimeToken,
-  issueRefreshToken,
-  issueToken,
-  newSessionId,
-  verifyToken,
-} from "../packages/auth";
-import { ClipboardMonitor } from "../packages/clipboard";
-import { MessageType, type RdpMessage } from "../packages/core-protocol";
-import { CursorCapture } from "../packages/cursor";
-import { H264Encoder } from "../packages/encoder";
-import {
-  sendKeyboardInput,
-  sendMouseMove,
-  sendMouseWheel,
-} from "../packages/input";
-import { ScreenCapture } from "../packages/screen-capture";
-import { DirtyRectTracker } from "../packages/screen-capture/dirty-rect";
-import { loadTlsConfig } from "../packages/tls";
-import { WsTransport } from "../packages/transport";
-import { log } from "../packages/utils";
-import { TrayIcon } from "../scripts/tray";
-import { checkForUpdates } from "../scripts/updater";
+import { AdaptiveBitrateController } from '../packages/adaptive-bitrate';
+import { WASAPILoopback } from '../packages/audio';
+import { issueOneTimeToken, issueToken, newSessionId, verifyToken } from '../packages/auth';
+import { ClipboardMonitor } from '../packages/clipboard';
+import { MessageType, type RdpMessage } from '../packages/core-protocol';
+import { CursorCapture } from '../packages/cursor';
+import { H264Encoder } from '../packages/encoder';
+import { sendKeyboardInput, sendMouseMove, sendMouseWheel } from '../packages/input';
+import { ScreenCapture } from '../packages/screen-capture';
+import { DirtyRectTracker } from '../packages/screen-capture/dirty-rect';
+import { loadTlsConfig } from '../packages/tls';
+import { WsTransport } from '../packages/transport';
+import { log } from '../packages/utils';
+import { TrayIcon } from '../scripts/tray';
+import { checkForUpdates } from '../scripts/updater';
 
 const PORT = Number(process.env.PORT ?? 9001);
 const FPS = Number(process.env.FPS ?? 30);
 const BITRATE = Number(process.env.BITRATE ?? 2_000_000);
-const AUDIO = process.env.AUDIO !== "false";
-const TRAY = process.env.BUN_RDP_TRAY !== "false";
-const HEADLESS = process.env.BUN_RDP_HEADLESS === "true"; // service mode
-const NO_AUTH = process.env.BUN_RDP_NO_AUTH === "true"; // dev mode — skip auth
+const AUDIO = process.env.AUDIO !== 'false';
+const TRAY = process.env.BUN_RDP_TRAY !== 'false';
+const HEADLESS = process.env.BUN_RDP_HEADLESS === 'true'; // service mode
+const NO_AUTH = process.env.BUN_RDP_NO_AUTH === 'true'; // dev mode — skip auth
 
 // ── CLI flags ─────────────────────────────────────────────────────────────────
-if (process.argv.includes("--gen-secret")) {
-  const { randomBytes } = await import("node:crypto");
-  console.log(randomBytes(32).toString("hex"));
+if (process.argv.includes('--gen-secret')) {
+  const { randomBytes } = await import('node:crypto');
+  console.log(randomBytes(32).toString('hex'));
   process.exit(0);
 }
 
@@ -50,7 +40,7 @@ async function main() {
   // ── Screen capture ────────────────────────────────────────────────────────
   const capture = new ScreenCapture();
   const backend = capture.init();
-  log.info("server", `Capture: ${backend}`);
+  log.info('server', `Capture: ${backend}`);
   const { width, height } = capture.dimensions;
 
   // ── Encoder + ABR ─────────────────────────────────────────────────────────
@@ -64,8 +54,7 @@ async function main() {
 
   const abr = new AdaptiveBitrateController({
     initialBitrate: BITRATE,
-    onBitrateChange: (br) =>
-      log.info("abr", `→ ${(br / 1000).toFixed(0)} kbps`),
+    onBitrateChange: (br) => log.info('abr', `→ ${(br / 1000).toFixed(0)} kbps`),
   });
 
   // ── Transport ─────────────────────────────────────────────────────────────
@@ -76,17 +65,17 @@ async function main() {
   const pings = new Map<string, number>();
   const clientIPs = new Map<string, string>();
 
-  transport.on("connect", (id, ip) => {
+  transport.on('connect', (id, ip) => {
     pings.set(id, 0);
     clientIPs.set(id, ip);
   });
-  transport.on("disconnect", (id, _ip) => {
+  transport.on('disconnect', (id, _ip) => {
     pings.delete(id);
     clientIPs.delete(id);
   });
 
-  transport.on("message", (clientId: string, msg: RdpMessage) => {
-    const ip = clientIPs.get(clientId) ?? "?";
+  transport.on('message', (clientId: string, msg: RdpMessage) => {
+    const ip = clientIPs.get(clientId) ?? '?';
     switch (msg.type) {
       case MessageType.AUTH: {
         if (NO_AUTH) {
@@ -116,10 +105,9 @@ async function main() {
         break;
       }
       case MessageType.INPUT:
-        if (msg.inputType === "mouse") sendMouseMove(msg.x ?? 0, msg.y ?? 0);
-        if (msg.inputType === "keyboard")
-          sendKeyboardInput(msg.keyCode ?? 0, msg.keyDown ?? false);
-        if (msg.inputType === "wheel") sendMouseWheel(msg.delta ?? 0);
+        if (msg.inputType === 'mouse') sendMouseMove(msg.x ?? 0, msg.y ?? 0);
+        if (msg.inputType === 'keyboard') sendKeyboardInput(msg.keyCode ?? 0, msg.keyDown ?? false);
+        if (msg.inputType === 'wheel') sendMouseWheel(msg.delta ?? 0);
         break;
       case MessageType.PING:
         abr.addSample(Date.now() - (pings.get(clientId) ?? msg.timestamp));
@@ -131,7 +119,7 @@ async function main() {
       case MessageType.CLIPBOARD:
         audit.clipboardIn(clientId, msg.format);
         clipboard.setClipboard({
-          format: msg.format as "text" | "html" | "image/png",
+          format: msg.format as 'text' | 'html' | 'image/png',
           data: msg.data,
         });
         break;
@@ -146,7 +134,7 @@ async function main() {
       type: MessageType.CLIPBOARD,
       format: payload.format,
       data: payload.data,
-    }),
+    })
   );
   clipboard.start();
   const cursorCap = new CursorCapture();
@@ -166,7 +154,7 @@ async function main() {
       await audio.init();
       audio.start();
     } catch (e) {
-      log.warn("audio", `WASAPI unavailable: ${e}`);
+      log.warn('audio', `WASAPI unavailable: ${e}`);
     }
   }
 
@@ -174,7 +162,7 @@ async function main() {
   if (TRAY && !HEADLESS) {
     const sid = newSessionId();
     const token = issueOneTimeToken(sid);
-    const proto = tls ? "wss" : "ws";
+    const proto = tls ? 'wss' : 'ws';
     const shareLink = `${proto}://localhost:${PORT}?token=${token}`;
 
     const trayIcon = new TrayIcon({
@@ -182,14 +170,14 @@ async function main() {
       getConnCount: () => transport.connectedCount,
       getShareLink: () => shareLink,
       onStop: () => {
-        log.info("server", "Stopping via tray…");
+        log.info('server', 'Stopping via tray…');
         process.exit(0);
       },
     });
     try {
       trayIcon.init();
     } catch (e) {
-      log.warn("tray", `System tray unavailable: ${e}`);
+      log.warn('tray', `System tray unavailable: ${e}`);
     }
   }
 
@@ -197,7 +185,7 @@ async function main() {
   if (process.env.BUN_RDP_PRINT_TOKEN) {
     const sid = newSessionId();
     const token = issueOneTimeToken(sid);
-    const proto = tls ? "wss" : "ws";
+    const proto = tls ? 'wss' : 'ws';
     console.log(`\n🔗 Share: ${proto}://localhost:${PORT}?token=${token}\n`);
   }
 
@@ -213,7 +201,7 @@ async function main() {
       return;
     }
 
-    const dirty = backend === "dxgi" ? dirtyTracker.query() : null;
+    const dirty = backend === 'dxgi' ? dirtyTracker.query() : null;
     const isFullFrame = !dirty || dirty.fullFrame;
     if (dirty && dirty.dirtyRects.length === 0 && !dirty.fullFrame) {
       skipCount++;
@@ -240,15 +228,15 @@ async function main() {
     if (frameCount % (FPS * 30) === 0) {
       const s = abr.stats();
       log.info(
-        "server",
-        `frames=${frameCount} skip=${skipCount} rtt=${s.avgRtt}ms br=${(s.bitrate / 1000).toFixed(0)}kbps`,
+        'server',
+        `frames=${frameCount} skip=${skipCount} rtt=${s.avgRtt}ms br=${(s.bitrate / 1000).toFixed(0)}kbps`
       );
     }
   }, interval);
 
   log.info(
-    "server",
-    `bun-rdp ready — ${tls ? "wss" : "ws"}://localhost:${PORT}  ${width}x${height}@${FPS}fps`,
+    'server',
+    `bun-rdp ready — ${tls ? 'wss' : 'ws'}://localhost:${PORT}  ${width}x${height}@${FPS}fps`
   );
 }
 

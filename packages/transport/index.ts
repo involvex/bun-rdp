@@ -1,6 +1,6 @@
 import type { ServerWebSocket, TLSOptions } from 'bun';
 import { AuditLogger } from '../audit';
-import { type RdpMessage, decodeMessage, encodeMessage } from '../core-protocol';
+import { decodeMessage, encodeMessage, type RdpMessage } from '../core-protocol';
 import { IPAllowlist } from '../security/ip-allowlist';
 import { RateLimiter } from '../security/rate-limiter';
 

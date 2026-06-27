@@ -1,13 +1,13 @@
 import { attachInputCapture } from '../../client/input-capture';
 import { CanvasRenderer } from '../../client/renderer/canvas';
-import { WebCodecsDecoder, isWebCodecsSupported } from '../../client/renderer/webcodecs';
+import { isWebCodecsSupported, WebCodecsDecoder } from '../../client/renderer/webcodecs';
 import { WebGPURenderer } from '../../client/renderer/webgpu';
-import { OpusPlayer, isOpusSupported } from '../../packages/audio/client';
+import { isOpusSupported, OpusPlayer } from '../../packages/audio/client';
 import {
-  MessageType,
-  type StatsMessage,
   decodeMessage,
   encodeMessage,
+  MessageType,
+  type StatsMessage,
 } from '../../packages/core-protocol';
 
 // ── DOM ───────────────────────────────────────────────────────────────────────

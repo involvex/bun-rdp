@@ -13,7 +13,7 @@
  *   https://learn.microsoft.com/en-us/windows/win32/coreaudio/loopback-recording
  *   https://opus-codec.org/docs/opus_api-1.3.1/group__opus__encoder.html
  */
-import { FFIType, dlopen, ptr, toArrayBuffer } from 'bun:ffi';
+import { dlopen, FFIType, ptr, toArrayBuffer } from 'bun:ffi';
 import { audioclient, mmdeviceapi } from '../win32-compat';
 
 // ─── Opus constants ────────────────────────────────────────────────────────────

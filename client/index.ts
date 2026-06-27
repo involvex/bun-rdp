@@ -1,31 +1,40 @@
-import { decodeMessage, encodeMessage, MessageType } from '../packages/core-protocol';
-import { CanvasRenderer } from './renderer/canvas';
-import { isWebCodecsSupported, WebCodecsDecoder } from './renderer/webcodecs';
-import { WebGPURenderer } from './renderer/webgpu';
+import {
+  decodeMessage,
+  encodeMessage,
+  MessageType,
+} from "../packages/core-protocol";
+import { CanvasRenderer } from "./renderer/canvas";
+import { isWebCodecsSupported, WebCodecsDecoder } from "./renderer/webcodecs";
+import { WebGPURenderer } from "./renderer/webgpu";
 
-const SERVER = process.env.SERVER ?? 'ws://localhost:9001';
-const TOKEN = process.env.TOKEN ?? '';
+const SERVER = process.env.SERVER ?? "ws://localhost:9001";
+const TOKEN = process.env.TOKEN ?? "";
 
 // ── WebSocket ──────────────────────────────────────────────────────────────
 const ws = new WebSocket(SERVER);
-ws.binaryType = 'arraybuffer';
+ws.binaryType = "arraybuffer";
 
 let decoder: WebCodecsDecoder | null = null;
 let renderer: WebGPURenderer | CanvasRenderer | null = null;
 let canvas: HTMLCanvasElement | null = null;
 
 ws.onopen = async () => {
-  console.log('[client] Connected →', SERVER);
+  console.log("[client] Connected →", SERVER);
   ws.send(encodeMessage({ type: MessageType.AUTH, token: TOKEN }));
 
   // Set up canvas (Node/Bun: use OffscreenCanvas or skip for headless)
-  if (typeof document !== 'undefined') {
+  if (typeof document !== "undefined") {
     canvas =
-      (document.getElementById('remote') as HTMLCanvasElement) ?? document.createElement('canvas');
+      (document.getElementById("remote") as HTMLCanvasElement) ??
+      document.createElement("canvas");
   }
 
-  const webCodecsOk = typeof VideoDecoder !== 'undefined' && (await isWebCodecsSupported());
-  console.log('[client] WebCodecs:', webCodecsOk ? '✅' : '❌ (will use Canvas2D)');
+  const webCodecsOk =
+    typeof VideoDecoder !== "undefined" && (await isWebCodecsSupported());
+  console.log(
+    "[client] WebCodecs:",
+    webCodecsOk ? "✅" : "❌ (will use Canvas2D)",
+  );
 };
 
 ws.onmessage = async ({ data }) => {
@@ -72,6 +81,11 @@ ws.onmessage = async ({ data }) => {
       break;
     }
 
+    case MessageType.AUTH: {
+      console.log("[client] Authenticated, session:", msg.sessionId);
+      break;
+    }
+
     case MessageType.PING:
       ws.send(encodeMessage({ type: MessageType.PING, timestamp: Date.now() }));
       break;
@@ -79,9 +93,9 @@ ws.onmessage = async ({ data }) => {
 };
 
 ws.onclose = () => {
-  console.log('[client] Disconnected');
+  console.log("[client] Disconnected");
   decoder?.dispose();
   renderer?.dispose?.();
 };
 
-ws.onerror = (e) => console.error('[client] Error', e);
+ws.onerror = (e) => console.error("[client] Error", e);

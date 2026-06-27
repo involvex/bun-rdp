@@ -1,22 +1,25 @@
-import { attachInputCapture } from '../../client/input-capture';
-import { CanvasRenderer } from '../../client/renderer/canvas';
-import { isWebCodecsSupported, WebCodecsDecoder } from '../../client/renderer/webcodecs';
-import { WebGPURenderer } from '../../client/renderer/webgpu';
-import { isOpusSupported, OpusPlayer } from '../../packages/audio/client';
+import { attachInputCapture } from "../../client/input-capture";
+import { CanvasRenderer } from "../../client/renderer/canvas";
+import {
+  isWebCodecsSupported,
+  WebCodecsDecoder,
+} from "../../client/renderer/webcodecs";
+import { WebGPURenderer } from "../../client/renderer/webgpu";
+import { isOpusSupported, OpusPlayer } from "../../packages/audio/client";
 import {
   decodeMessage,
   encodeMessage,
   MessageType,
   type StatsMessage,
-} from '../../packages/core-protocol';
+} from "../../packages/core-protocol";
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
-const canvas = document.getElementById('remote') as HTMLCanvasElement;
-const statusEl = document.getElementById('status') as HTMLElement;
-const rttEl = document.getElementById('rtt') as HTMLElement;
-const fpsEl = document.getElementById('fps') as HTMLElement;
-const brEl = document.getElementById('bitrate') as HTMLElement;
-const cursorEl = document.getElementById('cursor') as HTMLImageElement;
+const canvas = document.getElementById("remote") as HTMLCanvasElement;
+const statusEl = document.getElementById("status") as HTMLElement;
+const rttEl = document.getElementById("rtt") as HTMLElement;
+const fpsEl = document.getElementById("fps") as HTMLElement;
+const brEl = document.getElementById("bitrate") as HTMLElement;
+const cursorEl = document.getElementById("cursor") as HTMLImageElement;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let decoder: WebCodecsDecoder | null = null;
@@ -38,7 +41,7 @@ function updateCursor(
   hotY: number,
   w: number,
   h: number,
-  bgra: Uint8Array
+  bgra: Uint8Array,
 ) {
   if (!cursorEl) return;
   // Convert BGRA → RGBA for ImageData
@@ -50,9 +53,9 @@ function updateCursor(
     rgba[i + 3] = bgra[i + 3]; // A
   }
   const offscreen = new OffscreenCanvas(w, h);
-  const ctx = offscreen.getContext('2d')!;
+  const ctx = offscreen.getContext("2d")!;
   ctx.putImageData(new ImageData(rgba, w, h), 0, 0);
-  offscreen.convertToBlob({ type: 'image/png' }).then((blob) => {
+  offscreen.convertToBlob({ type: "image/png" }).then((blob) => {
     const url = URL.createObjectURL(blob);
     if (cursorEl.src) URL.revokeObjectURL(cursorEl.src);
     cursorEl.src = url;
@@ -61,24 +64,30 @@ function updateCursor(
 }
 
 // ── Clipboard sync ────────────────────────────────────────────────────────────
-document.addEventListener('paste', async (e) => {
-  const text = e.clipboardData?.getData('text/plain');
+document.addEventListener("paste", async (e) => {
+  const text = e.clipboardData?.getData("text/plain");
   if (text && ws.readyState === WebSocket.OPEN) {
-    ws.send(encodeMessage({ type: MessageType.CLIPBOARD, format: 'text', data: text }));
+    ws.send(
+      encodeMessage({
+        type: MessageType.CLIPBOARD,
+        format: "text",
+        data: text,
+      }),
+    );
   }
 });
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 const params = new URLSearchParams(location.search);
-const SERVER = params.get('server') ?? `ws://${location.host}/ws`;
-const TOKEN = params.get('token') ?? '';
+const SERVER = params.get("server") ?? `ws://${location.host}/ws`;
+const TOKEN = params.get("token") ?? "";
 
 const ws = new WebSocket(SERVER);
-ws.binaryType = 'arraybuffer';
-setStatus('Connecting…');
+ws.binaryType = "arraybuffer";
+setStatus("Connecting…");
 
 ws.onopen = async () => {
-  setStatus('Authenticating…');
+  setStatus("Authenticating…");
   ws.send(encodeMessage({ type: MessageType.AUTH, token: TOKEN }));
   attachInputCapture(canvas, (data) => ws.send(data));
 
@@ -110,7 +119,7 @@ ws.onmessage = async ({ data }) => {
       }
 
       if (!decoder) {
-        setStatus('Init renderer…');
+        setStatus("Init renderer…");
         const webCodecsOk = await isWebCodecsSupported();
         const gpu = new WebGPURenderer(canvas);
         const gpuOk = await gpu.init(msg.width, msg.height);
@@ -124,14 +133,14 @@ ws.onmessage = async ({ data }) => {
               frame.close();
             },
           });
-          setStatus('WebGPU + WebCodecs ✅');
+          setStatus("WebGPU + WebCodecs ✅");
         } else if (webCodecsOk) {
           renderer = new CanvasRenderer(canvas);
           decoder = new WebCodecsDecoder({ canvas });
-          setStatus('Canvas + WebCodecs ✅');
+          setStatus("Canvas + WebCodecs ✅");
         } else {
           renderer = new CanvasRenderer(canvas);
-          setStatus('Canvas2D fallback ⚠️');
+          setStatus("Canvas2D fallback ⚠️");
         }
         if (decoder) await decoder.init(msg.width, msg.height);
       }
@@ -146,12 +155,20 @@ ws.onmessage = async ({ data }) => {
     }
 
     case MessageType.CURSOR: {
-      updateCursor(msg.x, msg.y, msg.hotX, msg.hotY, msg.width, msg.height, msg.data);
+      updateCursor(
+        msg.x,
+        msg.y,
+        msg.hotX,
+        msg.hotY,
+        msg.width,
+        msg.height,
+        msg.data,
+      );
       break;
     }
 
     case MessageType.CLIPBOARD: {
-      if (msg.format === 'text') {
+      if (msg.format === "text") {
         navigator.clipboard?.writeText(msg.data).catch(() => {});
       }
       break;
@@ -160,6 +177,11 @@ ws.onmessage = async ({ data }) => {
     case MessageType.PING: {
       const rtt = Date.now() - lastPing;
       if (rttEl) rttEl.textContent = `${rtt} ms`;
+      break;
+    }
+
+    case MessageType.AUTH: {
+      setStatus("Connected ✅");
       break;
     }
 
@@ -174,8 +196,8 @@ ws.onmessage = async ({ data }) => {
 };
 
 ws.onclose = () => {
-  setStatus('Disconnected ❌');
+  setStatus("Disconnected ❌");
   decoder?.dispose();
   audioPlayer?.dispose();
 };
-ws.onerror = () => setStatus('Error ❌');
+ws.onerror = () => setStatus("Error ❌");

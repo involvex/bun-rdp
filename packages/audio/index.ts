@@ -157,9 +157,15 @@ export class WASAPILoopback {
 
       try {
         // Drain all available capture packets
-        let frames: number, flags: number, data: Float32Array;
+        let frames: number;
+        let _flags: number;
+        let data: Float32Array;
         while (
-          (({ frames, flags, data } = (
+          (({
+            frames,
+            flags: _flags,
+            data,
+          } = (
             cap as unknown as {
               GetBuffer(): {
                 frames: number;

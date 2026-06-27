@@ -76,8 +76,8 @@ export function mergeRects(rects: Rect[], sw: number, sh: number): Rect[] {
     merged = false;
     for (let i = 0; i < boxes.length; i++) {
       for (let j = i + 1; j < boxes.length; j++) {
-        const a = boxes[i],
-          b = boxes[j];
+        const a = boxes[i];
+        const b = boxes[j];
         // Do they overlap or touch?
         if (a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1]) {
           boxes[i] = [

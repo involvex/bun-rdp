@@ -6,11 +6,11 @@
  *   "custom"  — use BUN_RDP_CERT + BUN_RDP_KEY paths
  *   "off"     — plain WebSocket (ws://) — LAN-only / behind TLS proxy
  *
- * Self-signed cert generation via Bun's built-in crypto (SubtleCrypto ECDSA P-256).
+ * Self-signed cert generation via `selfsigned` npm package.
  * For production: point to a Let's Encrypt cert via BUN_RDP_CERT / BUN_RDP_KEY.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 export type TlsMode = 'auto' | 'custom' | 'off';
 
@@ -23,51 +23,42 @@ const DATA_DIR = process.env.BUN_RDP_DATA_DIR ?? join(process.cwd(), '.rdp-data'
 const CERT_PATH = join(DATA_DIR, 'server.crt');
 const KEY_PATH = join(DATA_DIR, 'server.key');
 
-// ─── Self-signed cert (ECDSA P-256) ──────────────────────────────────────────
+// ─── Self-signed cert generation ──────────────────────────────────────────────
 
 /**
- * Generate a self-signed ECDSA P-256 certificate valid for 365 days.
- * Uses Bun's built-in SubtleCrypto — no openssl binary needed.
+ * Generate a self-signed certificate using the `selfsigned` package.
+ * Returns PEM-encoded cert + private key.
  */
 async function generateSelfSigned(): Promise<TlsConfig> {
-  const { privateKey, publicKey } = await crypto.subtle.generateKey(
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    true,
-    ['sign', 'verify']
-  );
+  // selfsigned is a CommonJS module — use require
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const selfsigned = require('selfsigned');
 
-  // Export keys as PKCS8 / SPKI
-  const privDer = await crypto.subtle.exportKey('pkcs8', privateKey);
-  const pubDer = await crypto.subtle.exportKey('spki', publicKey);
+  const attrs = [
+    { name: 'commonName', value: 'bun-rdp' },
+    { name: 'organizationName', value: 'bun-rdp' },
+    { name: 'countryName', value: 'DE' },
+  ];
 
-  const privPem = toPem('PRIVATE KEY', privDer);
-  const pubPem = toPem('PUBLIC KEY', pubDer);
-
-  // Build a minimal self-signed X.509 cert
-  // For full X.509 DER we rely on Bun's built-in x509 support (Bun ≥ 1.1)
-  const cert = await (
-    Bun as unknown as {
-      generateCertificate(opts: {
-        privateKey: CryptoKey;
-        publicKey: CryptoKey;
-        subject: string;
-        validDays: number;
-      }): Promise<string>;
-    }
-  ).generateCertificate({
-    privateKey,
-    publicKey,
-    subject: 'CN=bun-rdp,O=bun-rdp,C=DE',
-    validDays: 365,
+  const pems = await selfsigned.generate(attrs, {
+    days: 365,
+    algorithm: 'sha256',
+    extensions: [
+      {
+        name: 'subjectAltName',
+        altNames: [
+          { type: 2, value: 'localhost' },
+          { type: 7, ip: '127.0.0.1' },
+        ],
+      },
+    ],
+    keysize: 2048,
   });
 
-  return { cert, key: privPem };
-}
-
-function toPem(label: string, der: ArrayBuffer): string {
-  const b64 = btoa(String.fromCharCode(...new Uint8Array(der)));
-  const lines = b64.match(/.{1,64}/g)!.join('\n');
-  return `-----BEGIN ${label}-----\n${lines}\n-----END ${label}-----\n`;
+  return {
+    cert: pems.cert,
+    key: pems.private,
+  };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

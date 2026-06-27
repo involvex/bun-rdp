@@ -30,7 +30,7 @@ const MF_MT_PIXEL_ASPECT_RATIO = '{c6376a1e-8d0a-4027-be45-6d9a0ad39bb6}';
 const MFMediaType_Video = '{73646976-0000-0010-8000-00aa00389b71}';
 const MFVideoFormat_H264 = '{34363248-0000-0010-8000-00aa00389b71}';
 const MFVideoFormat_NV12 = '{3231564e-0000-0010-8000-00aa00389b71}';
-const MFVideoFormat_ARGB32 = '{00000015-0000-0010-8000-00aa00389b71}';
+const _MFVideoFormat_ARGB32 = '{00000015-0000-0010-8000-00aa00389b71}';
 
 const MF_SINK_WRITER_DISABLE_THROTTLING = '{08b845d8-2b74-4afe-9d53-be16d2d4ae4c}';
 const MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS = '{a634a91c-822b-41b9-a494-4de4643612b0}';
@@ -54,9 +54,9 @@ export function convertBGRAtoNV12(bgra: Uint8Array, width: number, height: numbe
   for (let row = 0; row < height; row++) {
     for (let col = 0; col < width; col++) {
       const i = (row * width + col) * 4;
-      const b = bgra[i],
-        g = bgra[i + 1],
-        r = bgra[i + 2];
+      const b = bgra[i];
+      const g = bgra[i + 1];
+      const r = bgra[i + 2];
       // Y = 16 + 65.481*R/255 + 128.553*G/255 + 24.966*B/255
       nv12[row * width + col] = Math.round(16 + 0.257 * r + 0.504 * g + 0.098 * b);
     }
@@ -67,9 +67,9 @@ export function convertBGRAtoNV12(bgra: Uint8Array, width: number, height: numbe
   for (let row = 0; row < height; row += 2) {
     for (let col = 0; col < width; col += 2) {
       // Average 2×2 block
-      let r = 0,
-        g = 0,
-        b = 0;
+      let r = 0;
+      let g = 0;
+      let b = 0;
       for (let dy = 0; dy < 2; dy++) {
         for (let dx = 0; dx < 2; dx++) {
           const i = ((row + dy) * width + (col + dx)) * 4;

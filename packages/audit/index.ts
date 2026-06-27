@@ -7,8 +7,8 @@
  *
  * Swap the FileAuditWriter for a database writer in production.
  */
-import { appendFileSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 // ─── Event types ──────────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ export class FileAuditWriter implements AuditWriter {
   }
 
   write(event: AuditEvent): void {
-    appendFileSync(this.path, JSON.stringify(event) + '\n', 'utf8');
+    appendFileSync(this.path, `${JSON.stringify(event)}\n`, 'utf8');
   }
 }
 

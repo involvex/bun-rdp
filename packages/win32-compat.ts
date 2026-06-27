@@ -68,17 +68,17 @@ export const dxgi = (() => {
 
   // Stub COM factory that returns proxy objects
   ns.CreateDXGIFactory1 = () => ({
-    EnumAdapters1: (idx: number) => ({
-      EnumOutputs: (idx: number) => ({
+    EnumAdapters1: (_idx: number) => ({
+      EnumOutputs: (_idx: number) => ({
         GetDesc: () => ({
           DesktopCoordinates: { left: 0, top: 0, right: 1920, bottom: 1080 },
           Monitor: { hMonitor: 0n },
           Flags: 0,
           DeviceName: "",
         }),
-        QueryInterface: (iid: unknown) => ({
-          DuplicateOutput: (device: unknown) => ({
-            AcquireNextFrame: (timeout: number) => ({
+        QueryInterface: (_iid: unknown) => ({
+          DuplicateOutput: (_device: unknown) => ({
+            AcquireNextFrame: (_timeout: number) => ({
               LastPresentTime: 1n,
               ContentRect: { left: 0, top: 0, right: 1920, bottom: 1080 },
             }),
@@ -120,17 +120,17 @@ export const d3d11 = (() => {
           GetImmediateContext: () => ({
             CopyResource: () => {},
             Map: (
-              resource: unknown,
-              subresource: number,
-              mapType: number,
-              mapFlags: number,
+              _resource: unknown,
+              _subresource: number,
+              _mapType: number,
+              _mapFlags: number,
             ) => ({
               pData: new Uint8Array(1920 * 1080 * 4),
               RowPitch: 1920 * 4,
             }),
             Unmap: () => {},
           }),
-          CreateTexture2D: (desc: any, data: unknown) => ({}),
+          CreateTexture2D: (_desc: any, _data: unknown) => ({}),
         },
       };
     }
@@ -228,6 +228,8 @@ class User32WNDCLASSEXW {
   cbSize: number;
   lpfnWndProc: Function;
   lpszClassName: string;
+  private _classNameBuf: Uint8Array;
+  _buf: Buffer;
 
   constructor(opts: {
     cbSize: number;
@@ -237,6 +239,25 @@ class User32WNDCLASSEXW {
     this.cbSize = opts.cbSize;
     this.lpfnWndProc = opts.lpfnWndProc;
     this.lpszClassName = opts.lpszClassName;
+    this._classNameBuf = new Uint8Array((opts.lpszClassName.length + 1) * 2);
+    const dv = new DataView(this._classNameBuf.buffer);
+    for (let i = 0; i < opts.lpszClassName.length; i++)
+      dv.setUint16(i * 2, opts.lpszClassName.charCodeAt(i), true);
+    this._buf = Buffer.alloc(80);
+  }
+
+  ref() {
+    this._buf.writeUInt32LE(this.cbSize, 0);
+    this._buf.writeUInt32LE(0, 4);
+    this._buf.writeBigUInt64LE(BigInt(0), 8);
+    this._buf.writeBigUInt64LE(BigInt(0), 24);
+    this._buf.writeBigUInt64LE(BigInt(0), 32);
+    this._buf.writeBigUInt64LE(BigInt(0), 40);
+    this._buf.writeBigUInt64LE(BigInt(0), 48);
+    this._buf.writeBigUInt64LE(0n, 56);
+    this._buf.writeBigUInt64LE(0n, 64);
+    this._buf.writeBigUInt64LE(BigInt(0), 72);
+    return this._buf;
   }
 }
 
@@ -463,10 +484,10 @@ export const mfplat = (() => {
   ns.MF_OPENMODE_DELETE_IF_EXIST = 4;
   ns.MF_FILEFLAGS_NONE = 0;
 
-  ns.MFCreateAttributes = (count: number) => ({
-    SetUINT32: (key: string, value: number) => {},
-    SetUINT64: (key: string, value: bigint) => {},
-    SetGUID: (key: string, value: string) => {},
+  ns.MFCreateAttributes = (_count: number) => ({
+    SetUINT32: (_key: string, _value: number) => {},
+    SetUINT64: (_key: string, _value: bigint) => {},
+    SetGUID: (_key: string, _value: string) => {},
   });
   ns.MFCreateMediaType = () => new MFMediaType();
   ns.MFCreateSample = () => new MFSample();

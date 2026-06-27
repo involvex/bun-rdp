@@ -210,9 +210,9 @@ export function sendSessionMessage(
   message: string,
   timeoutSec = 0
 ): boolean {
-  const tb = encodeWStr(title),
-    mb = encodeWStr(message),
-    pr = Buffer.alloc(4);
+  const tb = encodeWStr(title);
+  const mb = encodeWStr(message);
+  const pr = Buffer.alloc(4);
   return lib().symbols.WTSSendMessageW(
     WTS_CURRENT_SERVER,
     sessionId,

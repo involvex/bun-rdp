@@ -8,7 +8,7 @@
  *   refresh     — long-lived; used to obtain new session tokens
  *   one-time    — single-use share links; invalidated on first use
  */
-import { createHmac, randomBytes } from 'crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 
 // ─── Secret ───────────────────────────────────────────────────────────────────
 

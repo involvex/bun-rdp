@@ -58,7 +58,7 @@ async function extractAndReplace(zipPath: string): Promise<void> {
 
   // Extract ZIP (PowerShell or 7z)
   try {
-    await $`powershell Expand-Archive -Path ${zipPath} -DestinationPath ${tmpDir} -Force`;
+    await $`pwsh Expand-Archive -Path ${zipPath} -DestinationPath ${tmpDir} -Force`;
   } catch {
     await $`7z x ${zipPath} -o${tmpDir} -y`;
   }
@@ -68,14 +68,14 @@ async function extractAndReplace(zipPath: string): Promise<void> {
   const selfExe = process.execPath;
   const oldExe = `${selfExe}.old`;
 
-  const { renameSync } = await import('fs');
+  const { renameSync } = await import('node:fs');
   renameSync(selfExe, oldExe);
   renameSync(newExe, selfExe);
 
   console.log('[updater] Binary replaced — restarting…');
 
   // Restart the process
-  const { spawn } = await import('child_process');
+  const { spawn } = await import('node:child_process');
   const child = spawn(selfExe, process.argv.slice(2), {
     detached: true,
     stdio: 'inherit',

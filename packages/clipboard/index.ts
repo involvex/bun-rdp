@@ -9,9 +9,9 @@
  *   OpenClipboard / CloseClipboard / GetClipboardData / SetClipboardData
  *   AddClipboardFormatListener (WM_CLIPBOARDUPDATE)
  */
-import { Kernel32, User32 } from '../win32-compat';
+import { Kernel32, User32 } from "../win32-compat";
 
-export type ClipboardFormat = 'text' | 'html' | 'image/png';
+export type ClipboardFormat = "text" | "html" | "image/png";
 
 export interface ClipboardPayload {
   format: ClipboardFormat;
@@ -22,8 +22,9 @@ export type ClipboardChangeHandler = (payload: ClipboardPayload) => void;
 
 // ─── Win32 clipboard format IDs ──────────────────────────────────────────────
 const CF_UNICODETEXT = 13;
-const CF_DIB = 8;
-const CF_HTML = () => User32.RegisterClipboardFormatW('HTML Format');
+const _CF_DIB = 8;
+const CF_HTML = () =>
+  User32.RegisterClipboardFormatW(encodeWString("HTML Format"));
 
 // ─── ClipboardMonitor ─────────────────────────────────────────────────────────
 
@@ -42,7 +43,7 @@ export class ClipboardMonitor {
     this.running = true;
     this.cfHtml = CF_HTML();
     this._poll();
-    console.log('[clipboard] Monitor started');
+    console.log("[clipboard] Monitor started");
   }
 
   stop(): void {
@@ -76,7 +77,7 @@ export class ClipboardMonitor {
           const raw = readCString(ptr);
           Kernel32.GlobalUnlock(hMem);
           const html = parseHtmlClipboard(raw);
-          if (html) return { format: 'html', data: html };
+          if (html) return { format: "html", data: html };
         }
       }
 
@@ -86,7 +87,7 @@ export class ClipboardMonitor {
         const ptr = Kernel32.GlobalLock(hText);
         const text = readWString(ptr);
         Kernel32.GlobalUnlock(hText);
-        if (text.trim()) return { format: 'text', data: text };
+        if (text.trim()) return { format: "text", data: text };
       }
     } finally {
       User32.CloseClipboard();
@@ -100,9 +101,12 @@ export class ClipboardMonitor {
     try {
       User32.EmptyClipboard();
 
-      if (payload.format === 'text') {
+      if (payload.format === "text") {
         const wstr = encodeWString(payload.data);
-        const hMem = Kernel32.GlobalAlloc(Kernel32.GMEM_MOVEABLE, wstr.byteLength);
+        const hMem = Kernel32.GlobalAlloc(
+          Kernel32.GMEM_MOVEABLE,
+          wstr.byteLength,
+        );
         const ptr = Kernel32.GlobalLock(hMem);
         writeBuffer(ptr, wstr);
         Kernel32.GlobalUnlock(hMem);
@@ -112,7 +116,9 @@ export class ClipboardMonitor {
     } finally {
       User32.CloseClipboard();
     }
-    console.log(`[clipboard] Set: ${payload.format} (${payload.data.length} chars)`);
+    console.log(
+      `[clipboard] Set: ${payload.format} (${payload.data.length} chars)`,
+    );
   }
 }
 

@@ -57,7 +57,6 @@ export class WsTransport {
           }
         },
         close: (ws) => {
-          const client = this.clients.get(ws.data.id);
           this.clients.delete(ws.data.id);
           this.audit.disconnect(ws.data.ip, ws.data.id);
           this.onDisconnect?.(ws.data.id, ws.data.ip ?? '');
@@ -85,7 +84,9 @@ export class WsTransport {
 
         const id = crypto.randomUUID();
         if (server.upgrade(req, { data: { id, ip } })) return;
-        return new Response(this.tls ? 'bun-rdp (TLS)' : 'bun-rdp', { status: 200 });
+        return new Response(this.tls ? 'bun-rdp (TLS)' : 'bun-rdp', {
+          status: 200,
+        });
       },
     });
 
@@ -111,7 +112,7 @@ export class WsTransport {
     c.sessionId = sessionId;
   }
 
-  recordAuthFail(ip: string, clientId: string): boolean {
+  recordAuthFail(ip: string, _clientId: string): boolean {
     return this.limiter.recordAuthFail(ip);
   }
 

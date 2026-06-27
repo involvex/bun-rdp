@@ -1,5 +1,5 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from 'fs';
-import { join } from 'path';
+import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 /**
  * build.ts — Production build script
  *

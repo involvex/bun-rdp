@@ -6,8 +6,8 @@
  * The server serves these directly when no external web-ui path is set,
  * making the .exe fully self-contained.
  */
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
-import { extname, join, relative } from 'path';
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { extname, join, relative } from 'node:path';
 
 const WEB_UI_DIR = join(process.cwd(), 'dist', 'web-ui');
 const OUT_FILE = join(process.cwd(), 'server', 'embedded-assets.ts');
@@ -37,7 +37,7 @@ const files = walkDir(WEB_UI_DIR);
 const entries: string[] = [];
 
 for (const file of files) {
-  const rel = '/' + relative(WEB_UI_DIR, file).replace(/\\/g, '/');
+  const rel = `/${relative(WEB_UI_DIR, file).replace(/\\/g, '/')}`;
   const ext = extname(file);
   const mime = MIME[ext] ?? 'application/octet-stream';
   const b64 = readFileSync(file).toString('base64');

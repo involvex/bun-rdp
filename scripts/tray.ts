@@ -9,7 +9,7 @@
  *
  * Runs in the same process as the server (no separate window).
  */
-import { Kernel32, Shell32, User32 } from '../packages/win32-compat';
+import { Kernel32, Shell32, User32 } from "../packages/win32-compat";
 
 const WM_APP_TRAY = 0x8001; // custom WM message for tray callbacks
 const ID_TRAY = 1;
@@ -42,14 +42,14 @@ export class TrayIcon {
     const wc = new User32.WNDCLASSEXW({
       cbSize: User32.sizeof_WNDCLASSEXW,
       lpfnWndProc: this._wndProc.bind(this),
-      lpszClassName: 'bun-rdp-tray',
+      lpszClassName: "bun-rdp-tray",
     });
-    User32.RegisterClassExW(wc);
+    User32.RegisterClassExW(wc.ref());
 
     this.hwnd = User32.CreateWindowExW(
       0,
-      'bun-rdp-tray',
-      'bun-rdp',
+      "bun-rdp-tray",
+      "bun-rdp",
       0,
       0,
       0,
@@ -58,7 +58,7 @@ export class TrayIcon {
       User32.HWND_MESSAGE,
       null,
       null,
-      null
+      null,
     );
 
     // Load a default application icon (IDI_APPLICATION)
@@ -78,7 +78,7 @@ export class TrayIcon {
 
     this.running = true;
     this._messageLoop();
-    console.log('[tray] System-tray icon active');
+    console.log("[tray] System-tray icon active");
   }
 
   private _messageLoop(): void {
@@ -94,7 +94,12 @@ export class TrayIcon {
     tick();
   }
 
-  private _wndProc(hwnd: unknown, msg: number, wp: unknown, lp: unknown): number {
+  private _wndProc(
+    hwnd: unknown,
+    msg: number,
+    wp: unknown,
+    lp: unknown,
+  ): number {
     if (msg === WM_APP_TRAY) {
       const event = lp as number;
       if (event === User32.WM_RBUTTONUP || event === User32.WM_CONTEXTMENU) {
@@ -117,22 +122,35 @@ export class TrayIcon {
   private _showMenu(): void {
     const count = this.cfg.getConnCount();
     const hMenu = User32.CreatePopupMenu();
-    User32.AppendMenuW(hMenu, User32.MF_STRING, MENU_OPEN, '🌐  Open web-ui');
-    User32.AppendMenuW(hMenu, User32.MF_STRING, MENU_COPY, '🔗  Copy share link');
+    User32.AppendMenuW(hMenu, User32.MF_STRING, MENU_OPEN, "🌐  Open web-ui");
+    User32.AppendMenuW(
+      hMenu,
+      User32.MF_STRING,
+      MENU_COPY,
+      "🔗  Copy share link",
+    );
     User32.AppendMenuW(hMenu, User32.MF_SEPARATOR, 0, null);
     User32.AppendMenuW(
       hMenu,
       User32.MF_STRING | User32.MF_GRAYED,
       MENU_STATUS,
-      `👥  ${count} client${count !== 1 ? 's' : ''} connected`
+      `👥  ${count} client${count !== 1 ? "s" : ""} connected`,
     );
     User32.AppendMenuW(hMenu, User32.MF_SEPARATOR, 0, null);
-    User32.AppendMenuW(hMenu, User32.MF_STRING, MENU_STOP, '⏹  Stop server');
+    User32.AppendMenuW(hMenu, User32.MF_STRING, MENU_STOP, "⏹  Stop server");
 
     const pt = new User32.POINT();
     User32.GetCursorPos(pt);
     User32.SetForegroundWindow(this.hwnd);
-    User32.TrackPopupMenu(hMenu, User32.TPM_RIGHTBUTTON, pt.x, pt.y, 0, this.hwnd, null);
+    User32.TrackPopupMenu(
+      hMenu,
+      User32.TPM_RIGHTBUTTON,
+      pt.x,
+      pt.y,
+      0,
+      this.hwnd,
+      null,
+    );
     User32.DestroyMenu(hMenu);
   }
 
@@ -152,7 +170,7 @@ export class TrayIcon {
 
   private _openBrowser(): void {
     const url = `https://localhost:${this.cfg.port}`;
-    Shell32.ShellExecuteW(null, 'open', url, null, null, 1);
+    Shell32.ShellExecuteW(null, "open", url, null, null, 1);
   }
 
   private _copyLink(): void {
@@ -160,19 +178,22 @@ export class TrayIcon {
     if (User32.OpenClipboard(null)) {
       User32.EmptyClipboard();
       const wstr = encodeWString(link);
-      const hMem = Kernel32.GlobalAlloc(Kernel32.GMEM_MOVEABLE, wstr.byteLength);
+      const hMem = Kernel32.GlobalAlloc(
+        Kernel32.GMEM_MOVEABLE,
+        wstr.byteLength,
+      );
       const ptr = Kernel32.GlobalLock(hMem);
       new Uint8Array(
         (
           Bun as unknown as {
             FFI: { viewSource(p: unknown, l: number): ArrayBuffer };
           }
-        ).FFI.viewSource(ptr, wstr.byteLength)
+        ).FFI.viewSource(ptr, wstr.byteLength),
       ).set(wstr);
       Kernel32.GlobalUnlock(hMem);
       User32.SetClipboardData(13 /* CF_UNICODETEXT */, hMem);
       User32.CloseClipboard();
-      this._balloon('Link copied!', `Share link copied to clipboard.`);
+      this._balloon("Link copied!", "Share link copied to clipboard.");
     }
   }
 
@@ -204,7 +225,7 @@ export class TrayIcon {
       uID: ID_TRAY,
     });
     Shell32.Shell_NotifyIconW(Shell32.NIM_DELETE, nid);
-    console.log('[tray] Removed');
+    console.log("[tray] Removed");
   }
 }
 
